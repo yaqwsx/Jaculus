@@ -1,0 +1,14 @@
+name: ESP-IDF installer
+description: GitHub Action to install ESP-IDF
+
+inputs:
+  version:
+    description: Required ESP-IDF version as git tag
+    required: false
+    default: v4.3
+
+runs:
+  using: "composite"
+  steps:
+    - run: ${{ github.action_path }}/install.sh ${{ inputs.version }}
+      shell: bash
