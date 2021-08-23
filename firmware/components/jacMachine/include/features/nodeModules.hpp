@@ -5,13 +5,14 @@
 
 #include <cstring>
 #include <map>
+#include <functional>
 #include <filesystem.hpp>
 
 namespace jac {
 
 // Implement node modules loader (i.e., resolve syntax).
 //
-// Note that currently, this implementation is no compliant with
+// Note that currently, this implementation is not compliant with
 // https://nodejs.org/api/modules.html
 template < typename Self >
 class NodeModuleLoader {
@@ -47,6 +48,24 @@ public:
         duk_pop( self()._context );
     }
 
+    // Type of native module init function. The init function obtains a context
+    // where:
+    // - offset 0 contains the requested id (it can be usually ignored)
+    // - offset 1 contains the exports object
+    // - offset 2 contains the module object
+    // The function shall do one of the following:
+    // - return a string source of the module via the stack (return value 1)
+    // - populate exports object and return undefined via stack (return value 0)
+    // - replace exports object and return undefined via stack (return value 0)
+    using NativeModuleInit = std::function< duk_ret_t( duk_context * ) >;
+
+    void registerNativeModule( const std::string& name, NativeModuleInit init ) {
+        auto it = _availableNativeModules.find( name );
+        if ( it != _availableNativeModules.end() )
+            throw std::runtime_error( "Module " + name + " is already registered" );
+        _availableNativeModules.emplace( name, init );
+    }
+
 private:
     static duk_ret_t dukResolveModuleCb( duk_context *ctx ) {
         /*
@@ -58,17 +77,21 @@ private:
         try {
             Self& self = Self::fromContext( ctx );
 
-
             fs::Path resolvedPath;
 
             if ( requestedId.absolute() )
                 resolvedPath = requestedId;
             else if ( requestedId[ 0 ] == "." || requestedId[ 0 ] == ".." )
                 resolvedPath = parentId.dirname() / requestedId;
-            else
-                // TBA: Resolve built-in modules
+            else {
+                std::string id = duk_get_string( ctx, 0 );
+                auto registerIt = self._availableNativeModules.find( id );
+                if ( registerIt != self._availableNativeModules.end() )
+                    return dukReturn( ctx, id );
                 duk_error( ctx, DUK_ERR_TYPE_ERROR, "Cannot resolve module %s from %s",
                     requestedId.str().c_str(), parentId.str().c_str() );
+                __builtin_unreachable();
+            }
 
             fs::Path basePath( self._cfg.basePath );
             resolvedPath = basePath / resolvedPath;
@@ -99,13 +122,17 @@ private:
         /*
          *  Entry stack: [ resolved_id exports module ]
          */
-        const char *requestedId = duk_get_string( ctx, 0 );
+        const std::string requestedId = duk_get_string( ctx, 0 );
         try {
-            // TBA Implement built-in modules
+            auto nativeModuleIt = self._availableNativeModules.find( requestedId );
+            if ( nativeModuleIt != self._availableNativeModules.end() ) {
+                return nativeModuleIt->second( ctx );
+            }
+            // The module is not a native one, try reading it from FS
             std::string source = fs::readFile( self.resolvePath( requestedId ) );
             return dukReturn( ctx, source );
         }
-        catch ( std::runtime_error& e ) {
+        catch ( std::exception& e ) {
             duk_error( ctx, DUK_ERR_TYPE_ERROR, "Cannot load module %s: %s",
                     requestedId, e.what() );
         }
@@ -118,7 +145,7 @@ private:
         return path;
     }
 
-    std::map< std::string, std::string > _availableNativeModules;
+    std::map< std::string, NativeModuleInit > _availableNativeModules;
 };
 
 } // namespace jac

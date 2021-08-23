@@ -124,7 +124,7 @@ private:
         dukBindAsLightfuncToThis( ctx, dukResolveInternal, 1 );
         dukBindAsLightfuncToThis( ctx, dukRejectInternal, 1 );
 
-        // Invoke executor on dukResolveInternal and dukRejectInternal
+        // Invoke executor (-3) on dukResolveInternal (-2) and dukRejectInternal (-1)
         int status = duk_pcall( ctx, 2 );
         if ( status != DUK_EXEC_SUCCESS ) {
             dukDumpLast( ctx, "Cannot evaluate executor" );
@@ -186,17 +186,17 @@ private:
     }
 
     static duk_ret_t dukPromiseAll( duk_context *ctx ) {
-        std::cout << "All called\n";
+        // TBA: Implement
         return DUK_RET_TYPE_ERROR;
     }
 
     static duk_ret_t dukPromiseRace( duk_context *ctx ) {
-        std::cout << "Race called\n";
+        // TBA: Implement
         return DUK_RET_TYPE_ERROR;
     }
 
     static duk_ret_t dukPromiseCatch( duk_context *ctx ) {
-        std::cout << "Catch called\n";
+        // TBA: Implement
         return DUK_RET_TYPE_ERROR;
     }
 
@@ -368,12 +368,12 @@ private:
 
     // Takes a single argument: error
     static duk_ret_t dukRejectInternal( duk_context *ctx ) {
-        std::cout << "Duk reject internal\n";
         auto& self = Self::fromContext( ctx );
         duk_push_this( ctx );
         auto thisOffset = duk_get_top_index( ctx );
 
         dukDumpStack( ctx, "dukRejectInternal" );
+        dukRaiseError( ctx, "In dukRejectInternal");
 
         duk_get_prop_string( ctx, -1, "_promiseStatus" );
         if ( duk_require_int( ctx, -1 ) != 0 )

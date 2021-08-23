@@ -62,12 +62,20 @@ def delete(port, entry):
     port.write(f"REMOVE {entry}\n".encode("utf-8"))
     print(port.readline())
 
+def isHiddenFile(path):
+    """
+    Given a path, check if it contains a hidden directory
+    """
+    path = os.path.normpath(path)
+    return any([x[0] == "." and x != "." and x != ".." for x in path.split(os.sep)])
+
 @click.command()
 @acceptsSerialPort
 @click.option("-d", "--dir", type=click.Path(file_okay=False, dir_okay=True, exists=True), default=None)
 def sync(port, baudrate, dir):
     toUpload = []
     for root, dirs, files in os.walk(dir):
+        files = [f for f in files if not isHiddenFile(os.path.join(root, f))]
         for f in files:
             with open(os.path.join(root, f), "rb") as file:
                 content = base64.b64encode(file.read()).decode("utf-8")
@@ -81,7 +89,7 @@ def sync(port, baudrate, dir):
         for f, content in toUpload:
             message = f"PUSH {f} {content}\n".encode("utf-8")
             print(message)
-            CHUNK_SIZE = 512
+            CHUNK_SIZE = 256
             for chunk in [message[i:i + CHUNK_SIZE] for i in range(0, len(message), CHUNK_SIZE)]:
                 s.write(chunk)
                 time.sleep(0.2)

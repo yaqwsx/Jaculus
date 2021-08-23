@@ -9,7 +9,6 @@ function(duktape_library)
         GIT_TAG        ${A_VERSION}
     )
     FetchContent_GetProperties(duktape_${A_VERSION})
-    message(Populated ${duktape_${A_VERSION}_POPULATED})
     if(NOT ${duktape_${A_VERSION}_POPULATED})
         FetchContent_Populate(duktape_${A_VERSION})
     endif()

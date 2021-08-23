@@ -29,6 +29,7 @@ int ets_printf(const char *fmt, ...);
 #include <features/stdoutErrorHandler.hpp>
 #include <features/rtosTimers.hpp>
 #include <features/promise.hpp>
+#include <features/platform/esp32/gpio.hpp>
 
 #include <storage.hpp>
 #include <uploader.hpp>
@@ -99,7 +100,8 @@ extern "C" void app_main(void)
             RtosTimers,
             NodeModuleLoader,
             SocketDebugger,
-            Promise
+            Promise,
+            GpioDriver
         >;
 
 

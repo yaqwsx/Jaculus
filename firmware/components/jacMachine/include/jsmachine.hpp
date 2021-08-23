@@ -5,7 +5,10 @@
 #include <mutex>
 #include <vector>
 
+#include <freertos/semphr.h>
+
 #include <dukUtility.hpp>
+#include <freeRtos.hpp>
 
 // Define this macro to avoid tedious writing of a repetitive code
 // Note that macro is much easire solution than any other "proper C++" solution
@@ -24,10 +27,11 @@ public:
         public Features< Self >::Configuration...
     {
         int eventLoopLimit = 128;
+        int interruptQueueSize = 32;
     };
 
     JsMachineBase( Configuration cfg = Configuration() )
-        : _cfg( cfg )
+        : _cfg( cfg ), _isrService( cfg.interruptQueueSize )
     {
         _context = duk_create_heap(
             Self::allocateMemory,
@@ -85,6 +89,12 @@ public:
         xSemaphoreGive( _eventsPending );
     }
 
+    void IRAM_ATTR handleInterrupt( freertos::IsrDeferrer::Handler h,
+                                    freertos::IsrDeferrer::Arg a )
+    {
+        _isrService.isr( h, a );
+    }
+
     // Schedule a new job. The function f will be invoked with a _nextJobs
     // context and it should push function and arguments to it. Just like if
     // duk_call should be called.
@@ -139,6 +149,8 @@ protected:
     SemaphoreHandle_t _eventsPending;
     int _jobsPending = 0;
     std::recursive_mutex _globalLock; // The mutex has to be recursive to properly implement scheduleJob
+
+    freertos::IsrDeferrer _isrService;
 };
 
 } // namespace jac
