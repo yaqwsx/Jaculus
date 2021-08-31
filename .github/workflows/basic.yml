@@ -1,10 +1,10 @@
-name: Build firmware
+name: Build runtime
 on:
   push:
   pull_request:
 jobs:
   build_fw:
-    name: "Build firmware"
+    name: "Build runtime"
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -19,7 +19,7 @@ jobs:
       - name: Build
         run: |
           source ~/esp/esp-idf/export.sh
-          cd firmware
+          cd runtime
           cp main/credentials_template.hpp main/credentials.hpp
           idf.py build
           idf.py size

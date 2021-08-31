@@ -1,5 +1,4 @@
 #pragma once
-#include <iostream>
 #include <functional>
 #include <cstring>
 
@@ -148,16 +147,13 @@ private:
     static void eventHandler(void* arg, esp_event_base_t event_base,
         int32_t event_id, void* event_data )
     {
-        std::cout << "Event handler: " << event_base << ", " << arg << "\n";
         WiFiConnector &self = *reinterpret_cast< WiFiConnector *>( arg );
 
         if ( event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START ) {
-            std::cout << "Sta ready\n";
             esp_wifi_connect();
         }
         else if ( event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED ) {
             self._attemptNumber++;
-            std::cout << "Failing\n";
             if ( self._errorCallback( "Connection failed", self._attemptNumber ) )
                 esp_wifi_connect();
         }
@@ -167,7 +163,6 @@ private:
         else if ( event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP ) {
             ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
             self._ipAddr = event->ip_info.ip;
-            std::cout << "Sucess, we have IP!\n";
             self._ipCallback(self._ipAddr);
         }
     }
