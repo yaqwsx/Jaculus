@@ -1,4 +1,7 @@
 find_package(Python2 COMPONENTS Interpreter)
+if (NOT ${Python2_FOUND})
+    message(FATAL_ERROR "Python 2 not found. Cannot configure Duktape")
+endif()
 
 function(duktape_library)
     cmake_parse_arguments(A "" "TARGET;VERSION;CONFIGURATION" "" ${ARGN})
