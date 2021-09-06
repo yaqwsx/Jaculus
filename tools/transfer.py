@@ -37,7 +37,14 @@ def acceptsSerialPort(function):
 
 def jumpIntoUploader(port):
     port.rts = False
+    time.sleep(0.5) # Windows does not make the change immediately
     port.rts = True
+
+def clearPort(port):
+    t = port.timeout
+    port.timeout = 0.5
+    port.read(64 * 1024 * 1024)
+    port.timeout = t
 
 def exitUploader(port):
     port.write("EXIT\n".encode("utf-8"))
@@ -83,6 +90,9 @@ def sync(port, baudrate, dir):
             name = os.path.relpath(name, dir)
             toUpload.append((name, content))
     with serial.Serial(getPortPath(port), baudrate) as s:
+        # Windows restarts ESP32, so there will be bootloader message
+        time.sleep(1)
+        clearPort(s)
         jumpIntoUploader(s)
         for entry in listTargetEntries(s):
             delete(s, entry.name)
