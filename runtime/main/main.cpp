@@ -1,8 +1,12 @@
 #include "sdkconfig.h"
 
 #include <esp_system.h>
-#include <esp_vfs_dev.h>
-#include <esp_vfs.h>
+// This shouldn't be necessary, but ESP-IDF has broken guards.
+// Relevant issue: https://github.com/espressif/esp-idf/issues/7204
+extern "C" {
+    #include <esp_vfs_dev.h>
+    #include <esp_vfs.h>
+}
 #include <driver/gpio.h>
 #include <driver/uart.h>
 #include <iostream>
