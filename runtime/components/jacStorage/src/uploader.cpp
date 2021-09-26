@@ -24,17 +24,14 @@ using UploaderInterface = Mixin<
     CommandInterpreter,
     CommandImplementation >;
 
-void discardBufferedStdin() {
-    std::cin.ignore( std::cin.rdbuf()->in_avail() );
-}
-
 void uploaderRoutine( void * ) {
-    std::cout << "Uploader started\n";
+    UploaderInterface interface;
+    interface.yieldString( "Uploader started\n" );
+
     while ( true ) {
         ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
-        discardBufferedStdin();
+        interface.discardBufferedStdin();
 
-        UploaderInterface interface;
         do {
             interface.interpretCommand();
         } while ( !interface.finished() );
