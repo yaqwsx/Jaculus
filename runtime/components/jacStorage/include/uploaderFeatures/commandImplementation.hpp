@@ -4,6 +4,7 @@
 
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <memory>
 #include <mbedtls/base64.h>
 
@@ -46,19 +47,22 @@ public:
                 if ( jac::utility::startswith( entityName, "__" ) )
                     return;
                 if ( type == FileType::Directory )
-                    std::cout << "D";
+                    self().yieldString( "D" );
                 else if ( type == FileType::File )
-                    std::cout << "F";
+                    self().yieldString( "F" );
                 else
-                    std::cout << "?";
+                    self().yieldString( "?" );
 
-                std::cout << " " << std::string_view( path ).substr( prefixLen )
+                std::stringstream ss;
+                ss << " " << std::string_view( path ).substr( prefixLen )
                           << "/" << entityName << "\n";
+                self().yieldString( ss.str() );
             },
             [&]( const std::string& error ) {
                 self().yieldError( error );
             });
-        std::cout << "\n";
+            self().yieldString( "\n" );
+
     }
 
     void doPull( const std::string& filename ) {
@@ -76,14 +80,14 @@ public:
         }
         int bytesRead;
         while ( ( bytesRead = read( fd, fileBuffer.get(), CHUNK_SIZE ) ) ) {
-            size_t proccessed;
+            size_t processed;
             int result = mbedtls_base64_encode(
-                encBuffer.get(), ENCODED_SIZE, &proccessed,
+                encBuffer.get(), ENCODED_SIZE, &processed,
                 fileBuffer.get(), bytesRead );
             assert( result != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
-            std::cout.write( reinterpret_cast< char * >( encBuffer.get() ), proccessed );
+            self().yieldBuffer( reinterpret_cast< char * >( encBuffer.get() ), processed );
         }
-        std::cout << "\n";
+        self().yieldString( "\n" );
 
         close( fd );
     }
@@ -92,7 +96,7 @@ public:
         const auto filePath = fsPath( filename );
         if ( remove( filePath.c_str() ) < 0 )
             self().yieldError( std::strerror( errno ) );
-        std::cout << "OK\n";
+        self().yieldString( "OK\n" );
     }
 
     void startFilePush() {
@@ -128,11 +132,11 @@ public:
         int res = rename( workingFilename().c_str(), path.c_str() );
         if ( res < 0 )
             self().yieldError( "Cannot finalize push: "s + std::strerror( errno ));
-        std::cout << "OK\n";
+        self().yieldString( "OK\n" );
     }
 
     void performExit() {
-        std::cout << "OK\n";
+        self().yieldString( "OK\n" );
         _finished = true;
     }
 
@@ -148,8 +152,10 @@ public:
         }
         int totalSectors = (fs->n_fatent - 2) * fs->csize;
         int freeSectors = freeClusters * fs->csize;
-        std::cout << freeSectors * CONFIG_WL_SECTOR_SIZE << " "
-                  << totalSectors * CONFIG_WL_SECTOR_SIZE << "\n";
+        std::stringstream ss;
+        ss << freeSectors * CONFIG_WL_SECTOR_SIZE << " "
+            << totalSectors * CONFIG_WL_SECTOR_SIZE << "\n";
+        self().yieldString( ss.str() );
     }
 
 private:
