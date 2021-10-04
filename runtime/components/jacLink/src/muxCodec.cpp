@@ -5,7 +5,7 @@
 #include <algorithm>
 
 
-size_t jac::link::encode( uint8_t channelId, const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
+size_t jac::link::encode( const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
     assert( destLen >= jac::link::frameMaxSize );
     assert( srcLen <= jac::link::inputMaxSize );
     dest[0] = 0;
