@@ -21,7 +21,7 @@ target_compile_options(${COMPONENT_LIB} INTERFACE
 
 duktape_library(
     TARGET duktape
-    VERSION v2.6.0
+    VERSION fffa346eff06a8764b02c31d4336f63a773a95c3
     CONFIGURATION ${COMPONENT_DIR}/duktape.yml)
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE duktape duktape_console duktape_module_node)

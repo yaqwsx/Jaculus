@@ -23,6 +23,7 @@ extern "C" {
 
 #include <storage.hpp>
 #include <uploader.hpp>
+#include <link.hpp>
 
 #include "wifi.h"
 
@@ -81,6 +82,8 @@ extern "C" void app_main() {
 
     setupUartDriver(); // Without UART drive stdio is non-blocking
     setupGpio();
+    link::initializeLink();
+    link::bindSinkStreamBuffer( nullptr, 23 );
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash" );
     initNvs();
