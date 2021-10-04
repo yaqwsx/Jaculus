@@ -1,11 +1,13 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <freertos/stream_buffer.h>
 
 #include <uploader.hpp>
 #include <uploaderFeatures/commandImplementation.hpp>
 #include <uploaderFeatures/commandInterpreter.hpp>
 #include <uploaderFeatures/stdinReader.hpp>
-#include <uploaderFeatures/stdoutReporter.hpp>
+// #include <uploaderFeatures/stdoutReporter.hpp>
+#include <uploaderFeatures/streamBufferReporter.hpp>
 
 #include <jacUtility.hpp>
 
@@ -20,29 +22,31 @@ namespace {
 
 using UploaderInterface = Mixin<
     StdinReader,
-    StdoutReporter,
+    StreamBufferReporter,
     CommandInterpreter,
     CommandImplementation >;
 
-void uploaderRoutine( void * ) {
-    UploaderInterface interface;
-    interface.yieldString( "Uploader started\n" );
+void uploaderRoutine( void * taskParam ) {
+    // log.yieldString( "Uploader started\n" );
 
     while ( true ) {
+        UploaderInterface interface;
+        interface.bindReportStreamBuffer( StreamBufferHandle_t(taskParam) );
+
         ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
         interface.discardBufferedStdin();
 
         do {
             interface.interpretCommand();
         } while ( !interface.finished() );
-
     }
 }
 
 void jac::storage::initializeUploader( const char *path ) {
     assert( uploaderTask == nullptr );
     basePath = path;
-    xTaskCreate( uploaderRoutine, "uploader", 3584, nullptr, 1, &uploaderTask );
+    StreamBufferHandle_t reportSB = xStreamBufferCreate( 512, 1 );
+    xTaskCreate( uploaderRoutine, "uploader", 3584, reportSB, 1, &uploaderTask );
 }
 
 void jac::storage::enterUploader() {
