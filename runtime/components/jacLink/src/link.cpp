@@ -65,7 +65,7 @@ void sinkMuxRoutine( void * taskParam ) {
 
         while ( size_t packetBytes = xStreamBufferReceive( streamTuple->sb, packetBuf + 1, sizeof( packetBuf - 1), 0) ) {
             packetBuf[0] = streamTuple->id;
-            size_t frameBytes = jac::link::encode( streamTuple->id, packetBuf, packetBytes + 1, frameBuf, sizeof (frameBuf) );
+            size_t frameBytes = jac::link::encode( packetBuf, packetBytes + 1, frameBuf, sizeof (frameBuf) );
             std::cout.write( (const char*)frameBuf, frameBytes );
         }
     }
