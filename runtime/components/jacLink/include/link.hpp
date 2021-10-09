@@ -8,7 +8,9 @@
 namespace jac::link {
 
 void initializeLink();
-void bindSinkStreamBuffer(StreamBufferHandle_t sb, uint8_t sinkId);
-void bindSourceStreamBuffer(StreamBufferHandle_t sb, uint8_t sinkId);
+void bindSinkStreamBuffer( StreamBufferHandle_t sb, uint8_t sinkId );
+void bindSourceStreamBuffer( StreamBufferHandle_t sb, uint8_t sourceId );
+
+void notifySink( StreamBufferHandle_t sb );
 
 }
