@@ -1,6 +1,6 @@
 const { Transform } = require('stream')
 // const crc16xmodem = require('crc/crc16xmodem')
-const { crc16xmodem } = require('./crc')
+const crc = require('./crc')
 const { cobsDecode } = require('./cobs')
 
 
@@ -26,7 +26,7 @@ class FrameParser extends Transform {
     processFrame() {
         let cobsDec = cobsDecode(this.buffer)
         if (cobsDec.length >= 3) {
-            let crcRem = crc16xmodem(cobsDec)
+            let crcRem = crc.crc16xmodem(cobsDec)
             // CRC of data including the CRC yields a 0 remainder:
             if (crcRem == 0) {
                 let channelId = cobsDec[0]

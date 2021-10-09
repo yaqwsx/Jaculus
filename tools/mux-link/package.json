@@ -1,0 +1,15 @@
+{
+  "name": "mux-link",
+  "version": "1.0.0",
+  "description": "Multiplexes and demultiplexes packets into Jaculus serial stream",
+  "main": "index.js",
+  "dependencies": {
+    "serialport": "^9.2.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
