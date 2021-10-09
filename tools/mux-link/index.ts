@@ -10,7 +10,7 @@ const parser = port.pipe(new FrameParser({}))
 
 parser.on('data', console.log)
 
-port.open(function (err) {
+port.open(function (err: any) {
     if (err) {
         return console.log('Error opening port: ', err.message)
     }

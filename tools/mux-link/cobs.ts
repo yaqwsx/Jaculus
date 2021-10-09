@@ -1,4 +1,6 @@
-module.exports.cobsDecode = function (buf) {
+import { Buffer } from "buffer"
+
+function cobsDecode(buf: Buffer): Buffer {
     const maxDest = (buf.length == 0) ? 0 : (buf.length - 1)
     let dest = Buffer.alloc(maxDest)
     let destInd = 0
@@ -14,3 +16,5 @@ module.exports.cobsDecode = function (buf) {
     }
     return destInd == maxDest ? dest : dest.slice(0, destInd + 1)
 }
+
+export { cobsDecode };

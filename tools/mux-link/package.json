@@ -4,9 +4,15 @@
   "description": "Multiplexes and demultiplexes packets into Jaculus serial stream",
   "main": "index.js",
   "dependencies": {
+    "@types/crc": "^3.4.0",
+    "@types/serialport": "^8.0.2",
+    "crc": "^3.8.0",
     "serialport": "^9.2.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@tsconfig/node14": "^1.0.1",
+    "@types/node": "^16.10.3"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

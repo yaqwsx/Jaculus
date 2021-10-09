@@ -1,0 +1,11 @@
+{
+    "extends": "@tsconfig/node14/tsconfig.json",
+    "compilerOptions": {
+        "target": "es2021",
+        "module": "commonjs",
+        "sourceMap": true,
+        "outDir": "dist",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+    }
+}
