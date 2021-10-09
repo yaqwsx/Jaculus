@@ -1,6 +1,6 @@
 // import FrameParser from './frameparser.mjs'
 const SerialPort = require('serialport')
-const FrameParser = require('./frameparser')
+const { FrameParser } = require('./frameparser')
 const port = SerialPort('COM3', {
     baudRate: 921600,
     autoOpen: false
