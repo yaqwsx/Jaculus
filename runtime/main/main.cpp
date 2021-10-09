@@ -27,6 +27,9 @@ extern "C" {
 
 #include "wifi.h"
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/stream_buffer.h>
+
 // Uncomment the following line to enable the proof-of-concept debugger
 // #define ENABLE_TEMPORARY_DEBUGGER
 
@@ -83,10 +86,34 @@ extern "C" void app_main() {
     setupUartDriver(); // Without UART drive stdio is non-blocking
     setupGpio();
     link::initializeLink();
-    link::bindSinkStreamBuffer( nullptr, 23 );
+    auto stdoutSb = xStreamBufferCreate( 512, 0 );
+    link::bindSinkStreamBuffer( stdoutSb, 1 );
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash" );
     initNvs();
+
+    while ( true ) {
+        xStreamBufferSend( stdoutSb, "ein", 3, portMAX_DELAY );
+        xStreamBufferSend( stdoutSb, "zwei", 4, portMAX_DELAY );
+        xStreamBufferSend( stdoutSb, "drei", 4, portMAX_DELAY );
+        xStreamBufferSend( stdoutSb, "vier", 4, portMAX_DELAY );
+        xStreamBufferSend( stdoutSb, "fuenf", 5, portMAX_DELAY );
+        link::notifySink( stdoutSb );
+        sys_delay_ms( 100 );
+        xStreamBufferSend( stdoutSb, "jedna", 5, portMAX_DELAY );
+        link::notifySink( stdoutSb );
+        sys_delay_ms( 100 );
+        xStreamBufferSend( stdoutSb, "dva", 3, portMAX_DELAY );
+        link::notifySink( stdoutSb );
+        sys_delay_ms( 100 );
+        xStreamBufferSend( stdoutSb, "try", 3, portMAX_DELAY );
+        link::notifySink( stdoutSb );
+        sys_delay_ms( 100 );
+        xStreamBufferSend( stdoutSb, "ctyry", 5, portMAX_DELAY );
+        link::notifySink( stdoutSb );
+        
+        sys_delay_ms( 1000 );
+    }
 
     #ifdef ENABLE_TEMPORARY_DEBUGGER
         WiFiConnector connector;
