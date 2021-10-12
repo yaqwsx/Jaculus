@@ -1,5 +1,5 @@
 import { Transform } from "stream"
-import * as crc from "crc"
+import { crc16xmodem } from "crc"
 import { cobsDecode } from "./cobs"
 import { Buffer } from "buffer"
 
@@ -31,7 +31,7 @@ class FrameParser extends Transform {
     processFrame() {
         let cobsDec = cobsDecode(this._buffer)
         if (cobsDec.length >= 3) {
-            let crcRem = crc.crc16xmodem(cobsDec)
+            let crcRem = crc16xmodem(cobsDec)
             // CRC of data including the CRC yields a 0 remainder:
             if (crcRem == 0) {
                 let channelId = cobsDec[0]
@@ -48,7 +48,7 @@ class FrameParser extends Transform {
             if (this._awaitLen) {
                 this._frameRem = chunk.readUint8(position)
                 if (this._frameRem != 0) {
-                    // console.log("new len", this.frameRem)
+                    // console.log("new len", this._frameRem)
                     this._awaitLen = false
                 }
                 position += 1
@@ -69,7 +69,7 @@ class FrameParser extends Transform {
                 this._buffer = Buffer.concat([this._buffer, nextSlice])
                 this._frameRem -= nextLen
                 position += nextLen
-                // console.log("next, buf", this.buffer, this.frameRem)
+                // console.log("next, buf", this._buffer, this._frameRem)
                 if (this._frameRem === 0) {
                     this.processFrame()
                     this._frameRem = 0
