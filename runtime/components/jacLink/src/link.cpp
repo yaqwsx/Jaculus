@@ -1,11 +1,15 @@
 #include "link.hpp"
 #include "muxCodec.hpp"
 
+#include <driver/uart.h>
+
 #include <iostream>
 #include <utility>
 #include <vector>
 #include <algorithm>
 #include <optional>
+#include <array>
+#include <sstream>
 
 namespace {
 
@@ -21,7 +25,6 @@ TaskHandle_t sinkMuxTask;
 TaskHandle_t sourceDemuxTask;
 
 EventGroupHandle_t sinkEvents;
-// EventGroupHandle_t sourceEvents;
 const uint32_t eventMask = 0x00ffffff;
 const uint8_t maxCid = 23;
 
@@ -71,30 +74,78 @@ void sinkMuxRoutine( void * taskParam ) {
         uint32_t evBit;
         decodeLowestBitPosition( evBits, evCid, evBit );
         auto channelDesc = channelDescByCid( sinkDescs, evCid );
-        if ( channelDesc == std::nullopt ) {
-            // warning channel id unassigned
-        }
         xEventGroupClearBits( sinkEvents, evBit );
+        if ( !channelDesc.has_value() ) {
+            // warning channel id unassigned
+            continue;
+        }
 
         while ( size_t dataBytes = xStreamBufferReceive( channelDesc->sb, packetBuf + 1, sizeof( packetBuf ) - 3, 0) ) {
             packetBuf[0] = channelDesc->cid;
             size_t packetBytes = jac::link::appendCrc( packetBuf, dataBytes + 1, sizeof( packetBuf ) );
             size_t frameBytes = jac::link::encodeFrame( packetBuf, packetBytes, frameBuf, sizeof( frameBuf ) );
-            std::cout.write( (const char*)frameBuf, frameBytes );
+            uart_write_bytes( UART_NUM_0, frameBuf, frameBytes );
         }
 
         // Flush if that's all we're sending now
-        if ( xEventGroupGetBits( sinkEvents ) == 0 ) {
-            std::cout.flush();
+        // if ( xEventGroupGetBits( sinkEvents ) == 0 ) {
+        // }
+    }
+}
+
+void processSourceFrame( uint8_t *data, size_t len ) {
+    static std::array<uint8_t, jac::link::packetMaxSize> packetBuf;
+    size_t packetBytes = jac::link::decodeFrame( data, len, packetBuf.data(), packetBuf.size() );
+    if (packetBytes > 0) {
+        uint8_t cid = packetBuf[0];
+        auto channelDesc = channelDescByCid( sourceDescs, cid );
+        if ( !channelDesc.has_value() ) {
+            // warning channel id unassigned
+            return;
         }
+        xStreamBufferSend( channelDesc->sb, packetBuf.data() + 1, packetBytes - 1, portMAX_DELAY );
+    }
+}
+
+void processSourceChunk( uint8_t *data, size_t len ) {
+    static std::array<uint8_t, jac::link::frameMaxSize> frameBuf;
+    static size_t frameInd = 0;
+    static size_t frameRem = 0;
+    static bool awaitLen = false;
+
+    size_t position = 0;
+    while ( position < len ) {
+        if (data[position] == 0) {
+            awaitLen = true;
+            position++;
+            continue;
+        }
+        if (awaitLen) {
+            frameRem = data[position];
+            awaitLen = frameRem == 0;
+            frameInd = 0;
+            position++;
+            continue;
+        }
+        if (frameRem > 0) {
+            frameBuf[frameInd++] = data[position];
+            if (--frameRem == 0) {
+                processSourceFrame(frameBuf.data(), frameInd);
+                frameInd = 0;
+            }
+        }
+        position++;
     }
 }
 
 void sourceDemuxRoutine( void * taskParam ) {
-    static char inputBuf[300];
+    static std::array<uint8_t, 300> inputBuf;
     while (true) {
-        vTaskDelay( 1000 / portTICK_RATE_MS );
-        // std::cin.readsome( inputBuf, sizeof( inputBuf ) );
+        int bytesRead;
+        bytesRead = uart_read_bytes( UART_NUM_0, inputBuf.data(), inputBuf.size(), 1 / portTICK_RATE_MS );
+        if (bytesRead > 0) {
+            processSourceChunk( inputBuf.data(), bytesRead );
+        }
     }
 }
 

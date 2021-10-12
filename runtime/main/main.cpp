@@ -88,31 +88,14 @@ extern "C" void app_main() {
     link::initializeLink();
     auto stdoutSb = xStreamBufferCreate( 512, 0 );
     link::bindSinkStreamBuffer( stdoutSb, 1 );
+    link::bindSourceStreamBuffer( stdoutSb, 1 );
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash" );
     initNvs();
 
     while ( true ) {
-        xStreamBufferSend( stdoutSb, "ein", 3, portMAX_DELAY );
-        xStreamBufferSend( stdoutSb, "zwei", 4, portMAX_DELAY );
-        xStreamBufferSend( stdoutSb, "drei", 4, portMAX_DELAY );
-        xStreamBufferSend( stdoutSb, "vier", 4, portMAX_DELAY );
-        xStreamBufferSend( stdoutSb, "fuenf", 5, portMAX_DELAY );
-        link::notifySink( stdoutSb );
-        sys_delay_ms( 100 );
-        xStreamBufferSend( stdoutSb, "jedna", 5, portMAX_DELAY );
-        link::notifySink( stdoutSb );
-        sys_delay_ms( 100 );
-        xStreamBufferSend( stdoutSb, "dva", 3, portMAX_DELAY );
-        link::notifySink( stdoutSb );
-        sys_delay_ms( 100 );
-        xStreamBufferSend( stdoutSb, "try", 3, portMAX_DELAY );
-        link::notifySink( stdoutSb );
-        sys_delay_ms( 100 );
-        xStreamBufferSend( stdoutSb, "ctyry", 5, portMAX_DELAY );
-        link::notifySink( stdoutSb );
-        
-        sys_delay_ms( 1000 );
+        sys_delay_ms( 10 );
+        jac::link::notifySink( stdoutSb );
     }
 
     #ifdef ENABLE_TEMPORARY_DEBUGGER

@@ -1,14 +1,20 @@
-#include "muxCodec.hpp"
+#include "encoding.hpp"
 #include "cobs.h"
 #include "rom/crc.h"
 
 #include <algorithm>
 
+#include "driver/uart.h"
+
+uint16_t jac::link::calculateCrc( uint8_t *data, size_t len ) {
+    uint16_t crc = ~crc16_be( ~0, data, len );
+    return crc;
+}
+
 size_t jac::link::appendCrc( uint8_t *data, size_t dataLen, size_t bufferLen ) {
     assert( bufferLen >= dataLen + 2);
-
-    uint16_t crc = ~crc16_be( ~0, data, dataLen );
     uint8_t *crcPtr = data + dataLen;
+    uint16_t crc = jac::link::calculateCrc( data, dataLen );
     crcPtr[0] = uint8_t( crc >> 8 );
     crcPtr[1] = uint8_t( crc );
     return dataLen + 2;
@@ -26,4 +32,18 @@ size_t jac::link::encodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest,
     dest[1] = cobsRes.out_len;
 
     return 2 + cobsRes.out_len;
+}
+
+size_t jac::link::decodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
+    auto cobsRes = cobs_decode( dest, destLen, src, srcLen );
+    if ( cobsRes.status != COBS_DECODE_OK || cobsRes.out_len < 3 ) {
+        // Decode err
+        return 0;
+    }
+    uint16_t crcRem = jac::link::calculateCrc( dest, destLen );
+    if (crcRem != 0) {
+        // CRC err
+        return 0;
+    }
+    return cobsRes.out_len - 2;
 }
