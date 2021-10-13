@@ -1,5 +1,5 @@
 #include "link.hpp"
-#include "muxCodec.hpp"
+#include "encoding.hpp"
 
 #include <driver/uart.h>
 
@@ -46,33 +46,24 @@ std::optional<ChannelDesc> channelDescByStream( const std::vector<ChannelDesc> &
     return std::nullopt;
 }
 
-bool decodeLowestBitPosition( uint32_t eventBits, uint8_t &cid, uint32_t &bit) {
-    cid = 0;
-    do {
-        bit = 1 << cid;
-        if ( bit & eventBits ) {
-            return true;
-        }
-        cid++;
-    } while ( bit & eventMask );
-    bit = 0;
-    return false;
-}
-
 uint32_t encodeBitPosition( uint8_t cid ) {
     return 1 << cid;
 }
 
+uint32_t decodeLowestBitPosition( uint32_t bits ) {
+    return __builtin_ctz( bits );
+}
+
 void sinkMuxRoutine( void * taskParam ) {
-    static uint8_t packetBuf[jac::link::packetMaxSize + 3];
+    static uint8_t packetBuf[jac::link::packetDataMaxSize + 3];
     static uint8_t frameBuf[jac::link::frameMaxSize];
 
     while ( true ) {
         uint32_t evBits = xEventGroupWaitBits( sinkEvents, eventMask, pdFALSE, pdFALSE, portMAX_DELAY );
         assert( evBits );
-        uint8_t evCid;
-        uint32_t evBit;
-        decodeLowestBitPosition( evBits, evCid, evBit );
+        uint32_t evCid = decodeLowestBitPosition( evBits );
+        uint32_t evBit = 1 << evCid;
+
         auto channelDesc = channelDescByCid( sinkDescs, evCid );
         xEventGroupClearBits( sinkEvents, evBit );
         if ( !channelDesc.has_value() ) {
@@ -94,7 +85,7 @@ void sinkMuxRoutine( void * taskParam ) {
 }
 
 void processSourceFrame( uint8_t *data, size_t len ) {
-    static std::array<uint8_t, jac::link::packetMaxSize> packetBuf;
+    static std::array<uint8_t, jac::link::packetDataMaxSize + 3> packetBuf;
     size_t packetBytes = jac::link::decodeFrame( data, len, packetBuf.data(), packetBuf.size() );
     if (packetBytes > 0) {
         uint8_t cid = packetBuf[0];

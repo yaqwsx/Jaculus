@@ -4,7 +4,7 @@ import { cobsDecode } from "./cobs"
 import { Buffer } from "buffer"
 
 import type { TransformOptions, TransformCallback } from "stream"
-// import type { BufferEncoding } from "buffer"
+
 /**
  * A transform stream that emits data each time a frame with correct CRC is received.
  * @extends Transform

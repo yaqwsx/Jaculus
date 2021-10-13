@@ -5,6 +5,8 @@ import { Buffer } from "buffer"
 
 import type { TransformOptions, TransformCallback } from "stream"
 
+const packetDataMaxLen = 251
+const frameMaxLen = 257
 class FrameEncoder extends Transform {
     constructor(opts?: TransformOptions) {
         super({ ...opts, readableObjectMode: true, writableObjectMode: true })
@@ -13,7 +15,7 @@ class FrameEncoder extends Transform {
     _transform(chunk: { data: Buffer, channelId: number }, encoding: BufferEncoding, callback: TransformCallback): void {        
         let chunkInd = 0
         while (chunkInd < chunk.data.length) {
-            let packetDataLen = Math.min(chunk.data.length - chunkInd, 250)
+            let packetDataLen = Math.min(chunk.data.length - chunkInd, packetDataMaxLen)
             let packet = Buffer.alloc(1 + packetDataLen + 2)
 
             // Prepend Channel ID to packet
@@ -24,8 +26,7 @@ class FrameEncoder extends Transform {
             let crc = crc16xmodem(packet.slice(0, packet.length - 2))
             packet.writeUInt16BE(crc, packet.length - 2)
             
-            let maxFrameLen = 256
-            let frameBuf = Buffer.alloc(maxFrameLen)
+            let frameBuf = Buffer.alloc(frameMaxLen)
             
             let cobsLen = cobsEncode(packet, frameBuf.slice(2, frameBuf.length - 2))
             frameBuf[0] = 0

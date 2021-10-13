@@ -20,11 +20,6 @@ const rl = readline.createInterface({
     terminal: false
 });
 
-// let buf = Buffer.from("6168AA6168", "hex")
-// let frameBuf = Buffer.alloc(2 + 200)
-// let frameLen = console.log(buf, cobsEncode(buf, frameBuf))
-
-
 parser.on('data', console.log)
 
 port.open(function (err: any) {
