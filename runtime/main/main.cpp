@@ -86,16 +86,16 @@ extern "C" void app_main() {
     setupUartDriver(); // Without UART drive stdio is non-blocking
     setupGpio();
     link::initializeLink();
-    auto stdoutSb = xStreamBufferCreate( 512, 0 );
-    link::bindSinkStreamBuffer( stdoutSb, 1 );
-    link::bindSourceStreamBuffer( stdoutSb, 1 );
+    auto stdoutDesc = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 1 };
+    link::bindSinkChannel( stdoutDesc );
+    link::bindSourceChannel( stdoutDesc );
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash" );
     initNvs();
 
     while ( true ) {
         sys_delay_ms( 10 );
-        jac::link::notifySink( stdoutSb );
+        jac::link::notifySink( stdoutDesc );
     }
 
     #ifdef ENABLE_TEMPORARY_DEBUGGER
