@@ -22,7 +22,7 @@ size_t jac::link::appendCrc( uint8_t *data, size_t dataLen, size_t bufferLen ) {
 
 size_t jac::link::encodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
     assert( destLen >= jac::link::frameMaxSize );
-    assert( srcLen <= jac::link::packetMaxSize );
+    assert( srcLen <= jac::link::packetDataMaxSize );
     dest[0] = 0;
 
     uint8_t *cobsPtr = dest + 2;
