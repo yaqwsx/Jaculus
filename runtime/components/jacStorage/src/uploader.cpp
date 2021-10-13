@@ -5,9 +5,8 @@
 #include <uploader.hpp>
 #include <uploaderFeatures/commandImplementation.hpp>
 #include <uploaderFeatures/commandInterpreter.hpp>
-#include <uploaderFeatures/stdinReader.hpp>
-// #include <uploaderFeatures/stdoutReporter.hpp>
-#include <uploaderFeatures/streamBufferReporter.hpp>
+#include <uploaderFeatures/channelReader.hpp>
+#include <uploaderFeatures/channelReporter.hpp>
 
 #include <jacUtility.hpp>
 
@@ -21,8 +20,8 @@ namespace {
 }
 
 using UploaderInterface = Mixin<
-    StdinReader,
-    StreamBufferReporter,
+    ChannelReader,
+    ChannelReporter,
     CommandInterpreter,
     CommandImplementation >;
 

@@ -1,5 +1,9 @@
 #include "link.hpp"
-#include "muxCodec.hpp"
+#include "encoding.hpp"
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/stream_buffer.h>
+#include <freertos/event_groups.h>
 
 #include <driver/uart.h>
 
@@ -13,10 +17,7 @@
 
 namespace {
 
-struct ChannelDesc {
-    StreamBufferHandle_t sb;
-    uint8_t cid;
-};
+using jac::link::ChannelDesc;
 
 std::vector<ChannelDesc> sinkDescs;
 std::vector<ChannelDesc> sourceDescs;
@@ -130,7 +131,7 @@ void processSourceChunk( uint8_t *data, size_t len ) {
         if (frameRem > 0) {
             frameBuf[frameInd++] = data[position];
             if (--frameRem == 0) {
-                processSourceFrame(frameBuf.data(), frameInd);
+                processSourceFrame( frameBuf.data(), frameInd );
                 frameInd = 0;
             }
         }
@@ -157,32 +158,38 @@ void jac::link::initializeLink() {
     xTaskCreate( sourceDemuxRoutine, "srcDemux", 3584, 0, 2, &sourceDemuxTask );
 }
 
-void jac::link::bindSinkStreamBuffer( StreamBufferHandle_t sb, uint8_t sinkCid ) {
-    assert( sinkCid <= maxCid );
-    auto channelDesc = channelDescByCid( sinkDescs, sinkCid );
+void jac::link::bindSinkChannel( const ChannelDesc &sinkDesc ) {
+    assert( sinkDesc.cid <= maxCid );
+    auto channelDesc = channelDescByCid( sinkDescs, sinkDesc.cid );
 
     if ( channelDesc.has_value() ) {
-        channelDesc->sb = sb;
+        channelDesc->sb = sinkDesc.sb;
     } else {
-        sinkDescs.push_back( {sb, sinkCid} );
+        sinkDescs.push_back( sinkDesc );
     }
 }
 
-void jac::link::bindSourceStreamBuffer( StreamBufferHandle_t sb, uint8_t sourceCid ) {
-    assert( sourceCid <= maxCid );
-    auto channelDesc = channelDescByCid( sourceDescs, sourceCid );
+void jac::link::bindSourceChannel( const ChannelDesc &sourceDesc ) {
+    assert( sourceDesc.cid <= maxCid );
+    auto channelDesc = channelDescByCid( sourceDescs, sourceDesc.cid );
 
     if ( channelDesc.has_value() ) {
-        channelDesc->sb = sb;
+        channelDesc->sb = sourceDesc.sb;
     } else {
-        sourceDescs.push_back( {sb, sourceCid} );
+        sourceDescs.push_back( sourceDesc );
     }
 }
 
-void jac::link::notifySink( StreamBufferHandle_t sb ) {
-    auto channelDesc = channelDescByStream( sinkDescs, sb );
+void jac::link::writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len ) {
+    xStreamBufferSend( sinkDesc.sb, data, len, portMAX_DELAY );
+    notifySink( sinkDesc );
+}
 
-    if ( channelDesc.has_value() ) {
-        xEventGroupSetBits( sinkEvents, encodeBitPosition( channelDesc->cid ) );
-    }
+size_t jac::link::readSource( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, TickType_t timeout = portMAX_DELAY ) {
+    size_t bytes = xStreamBufferReceive( sourceDesc.sb, data, len, timeout );
+    return bytes;
+}
+
+void jac::link::notifySink( const ChannelDesc &sinkDesc ) {
+    xEventGroupSetBits( sinkEvents, encodeBitPosition( sinkDesc.cid ) );
 }

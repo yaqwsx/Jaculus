@@ -1,16 +1,24 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
-#include <freertos/event_groups.h>
 
 namespace jac::link {
 
-void initializeLink();
-void bindSinkStreamBuffer( StreamBufferHandle_t sb, uint8_t sinkId );
-void bindSourceStreamBuffer( StreamBufferHandle_t sb, uint8_t sourceId );
+struct ChannelDesc {
+    StreamBufferHandle_t sb;
+    uint8_t cid;
+};
 
-void notifySink( StreamBufferHandle_t sb );
+void initializeLink();
+void bindSinkChannel( const ChannelDesc &sinkDesc );
+void bindSourceChannel( const ChannelDesc &sourceDesc );
+
+void writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len );
+size_t readSource( const ChannelDesc &sourceDesc, uint8_t *data, size_t len );
+
+void notifySink( const ChannelDesc &sinkDesc );
 
 }
