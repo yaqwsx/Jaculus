@@ -6,13 +6,7 @@ program
     .description("whatever");
 
 program
-    .command("hello", "A", {executableFile: "dist/commands/hello.js"})
-    .command("hi", "A", {executableFile: "dist/commands/hi.js"})
-    // .description('clone a repository into a newly created directory')
-        // .action(() => {console.log("Hello World!")});
+    .command("hello", "Say hello", {executableFile: "dist/commands/hello.js"})
+    .command("hi", "Say hi", {executableFile: "dist/commands/hi.js"})
 
-program.parse(process.argv);
-
-const a = 100
-
-export { a }
+program.parse();

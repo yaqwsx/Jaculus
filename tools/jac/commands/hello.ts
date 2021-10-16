@@ -3,13 +3,9 @@ import { Command } from "commander"
 const program = new Command();
 
 program
-    .command("hello")
-    .action(()=> console.log("hello!"))
-    // .description('clone a repository into a newly created directory')
-        // .action(() => {console.log("Hello World!")});
+    .option("-f, --force", "force")
+    .action(()=> console.log(program.opts().force ? "Fine... Hello!" : "I don't want to!"))
+    .description("Say Hello")
 
-program.parse(process.argv);
+program.parse();
 
-const a = 100
-
-export { a, program }
