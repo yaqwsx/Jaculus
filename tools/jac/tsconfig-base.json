@@ -1,15 +1,19 @@
 {
-    "extends": "@tsconfig/node14/tsconfig.json",
-    "compilerOptions": {
-      "baseUrl": ".",
-      "rootDir": ".",
-      "outDir": "dist",
-      "composite": true,
-      "declaration": true,
-      "declarationMap": true,
-      "paths": {
-        "src": ["src"],
-        "commands": ["commands"]
-      }
+  "extends": "@tsconfig/node14/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": ".",
+    "outDir": "dist",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "paths": {
+      "src": [
+        "src"
+      ],
+      "commands": [
+        "commands"
+      ]
     }
   }
+}

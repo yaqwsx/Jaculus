@@ -1,5 +1,5 @@
 {
-    "extends": "@tsconfig/node14/tsconfig.json",
+    "extends": "../tsconfig-base.json",
     "include": [
         "index.ts"
     ],
@@ -10,13 +10,9 @@
     "compilerOptions": {
         "target": "es2021",
         "module": "es2020",
-        "sourceMap": true,
-        "rootDir": "..",
-        "outDir": "dist",
-        "esModuleInterop": true,
         "moduleResolution": "node",
-        "declaration": true,
-        "declarationDir": "./types",
-        "composite": true
+        "sourceMap": true,
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
     }
 }

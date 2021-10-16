@@ -1,5 +1,5 @@
 {
-    "name": "jaculus-cli",
+    "name": "jac",
     "version": "1.0.0",
     "description": "",
     "files": [
@@ -7,7 +7,6 @@
     ],
     "type": "module",
     "main": "dist/index.js",
-    "types": "types/*",
     "dependencies": {
         "commander": "^8.2.0"
     },
@@ -19,5 +18,5 @@
     },
     "scripts": {},
     "author": "",
-    "license": "ISC"
+    "license": "MIT"
 }

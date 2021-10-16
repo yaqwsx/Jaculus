@@ -1,16 +1,14 @@
 {
-    "extends": "@tsconfig/node14/tsconfig.json",
-    "include": ["*"],
+    "extends": "../tsconfig-base.json",
+    "include": [
+        "./*"
+    ],
     "compilerOptions": {
         "target": "es2021",
         "module": "es2020",
-        "sourceMap": true,
-        "outDir": "dist",
-        "rootDir": "../",
-        "esModuleInterop": true,
         "moduleResolution": "node",
-        "declaration": true,
-        "declarationDir": "./types",
-        "composite": true
+        "sourceMap": true,
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
     }
 }
