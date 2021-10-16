@@ -1,0 +1,25 @@
+{
+    "extends": "@tsconfig/node14/tsconfig.json",
+    "include": [
+        "index.ts"
+    ],
+    "references": [
+        {
+            "path": "./commands"
+        },
+        {
+            "path": "./src"
+        }
+    ],
+    "compilerOptions": {
+        "target": "es2021",
+        "module": "es2020",
+        "sourceMap": true,
+        "outDir": "dist",
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "declaration": true,
+        "declarationDir": "./types",
+        "composite": true
+    }
+}

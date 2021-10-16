@@ -1,0 +1,23 @@
+{
+    "name": "jaculus-cli",
+    "version": "1.0.0",
+    "description": "",
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "types/*",
+    "dependencies": {
+        "commander": "^8.2.0"
+    },
+    "devDependencies": {
+        "@tsconfig/node14": "^1.0.1",
+        "@types/crc": "^3.4.0",
+        "@types/node": "^16.10.3",
+        "@types/serialport": "^8.0.2"
+    },
+    "scripts": {},
+    "author": "",
+    "license": "ISC"
+}
