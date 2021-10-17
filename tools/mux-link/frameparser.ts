@@ -42,7 +42,7 @@ class FrameParser extends Transform {
 
     _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {
         let position = 0
-        // console.log("chunk", chunk.length)
+        // console.log("Rchunk", chunk.length, chunk.toString())
 
         while (position < chunk.length) {
             if (this._awaitLen) {
@@ -76,7 +76,9 @@ class FrameParser extends Transform {
                     this._awaitLen = false
                     this._buffer = Buffer.alloc(0)
                 }
+                continue;
             }
+            position += zeroSpan.length
         }
 
         callback()

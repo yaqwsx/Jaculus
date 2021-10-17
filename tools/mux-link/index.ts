@@ -1,6 +1,6 @@
-const log = require('why-is-node-running')
+// const log = require('why-is-node-running')
 const SerialPort = require('serialport')
-import { cobsEncode } from "./cobs"
+// import { cobsEncode } from "./cobs"
 import { FrameEncoder } from "./FrameEncoder"
 const { FrameParser } = require('./FrameParser')
 const readline = require("readline")
@@ -20,7 +20,9 @@ const rl = readline.createInterface({
     terminal: false
 });
 
-parser.on('data', console.log)
+parser.on('data', function(chunk: { data: Buffer, channelId: number }) {
+    console.log('Read', chunk.channelId, chunk.data.toString())
+})
 
 port.open(function (err: any) {
     if (err) {
@@ -29,8 +31,8 @@ port.open(function (err: any) {
 })
 
 rl.on('line', function (line: string) {
-    let buf = Buffer.from(line)
-    console.log("Writing", buf)
+    let buf = Buffer.from(line + '\n')
+    console.log("Write", buf.toString())
     encoder.write({ data: buf, channelId: 1 })
 })
 
