@@ -1,5 +1,7 @@
 #pragma once
 
+#include <jacLog.hpp>
+
 #include <memory>
 #include <string>
 #include <mbedtls/base64.h>
@@ -22,6 +24,7 @@ public:
      * Reads a command from input and interprets it on-the-fly.
      * Always ensures that a whole command was read. **/
     void interpretCommand() {
+        JAC_LOGI( "uploader", "interpreting" );
         discardWhitespace();
         std::string command = readWord( 256 );
         if ( command.length() == 256 ) {
@@ -51,6 +54,7 @@ public:
     }
 
     void interpretList() {
+        JAC_LOGI( "uploader", "LIST" );
         std::string prefix = readWord(); // It is OK if it is empty!
         if ( prefix.front() != '/' )
             prefix.insert( 0, "/" );

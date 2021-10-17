@@ -22,7 +22,7 @@ size_t jac::link::appendCrc( uint8_t *data, size_t dataLen, size_t bufferLen ) {
 
 size_t jac::link::encodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
     assert( destLen >= jac::link::frameMaxSize );
-    assert( srcLen <= jac::link::packetDataMaxSize );
+    assert( srcLen <= jac::link::packetMaxSize );
     dest[0] = 0;
 
     uint8_t *cobsPtr = dest + 2;
@@ -37,12 +37,12 @@ size_t jac::link::encodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest,
 size_t jac::link::decodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
     auto cobsRes = cobs_decode( dest, destLen, src, srcLen );
     if ( cobsRes.status != COBS_DECODE_OK || cobsRes.out_len < 3 ) {
-        // Decode err
+        // JAC_LOGI( "link", "decerr %d", int(cobsRes.status) );
         return 0;
     }
-    uint16_t crcRem = jac::link::calculateCrc( dest, destLen );
+    uint16_t crcRem = jac::link::calculateCrc( dest, cobsRes.out_len );
     if (crcRem != 0) {
-        // CRC err
+        // JAC_LOGI( "link", "crcerr" );
         return 0;
     }
     return cobsRes.out_len - 2;

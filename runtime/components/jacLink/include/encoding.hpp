@@ -6,6 +6,7 @@
 namespace jac::link {
 
 inline const size_t packetDataMaxSize = 251;
+inline const size_t packetMaxSize = 254;
 inline const size_t frameMaxSize = 257;
 
 uint16_t calculateCrc( uint8_t *data, size_t len );

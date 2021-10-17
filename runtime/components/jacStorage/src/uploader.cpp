@@ -9,13 +9,19 @@
 #include <uploaderFeatures/channelReporter.hpp>
 
 #include <jacUtility.hpp>
+#include <jacLog.hpp>
 
 using namespace jac;
 using namespace jac::storage;
 using namespace jac::utility;
+using namespace jac::link;
 
 namespace {
     TaskHandle_t uploaderTask;
+    struct TaskParams {
+        ChannelDesc *readerChannel;
+        ChannelDesc *reporterChannel;
+    } taskParams;
     const char* basePath = nullptr;
 }
 
@@ -25,15 +31,17 @@ using UploaderInterface = Mixin<
     CommandInterpreter,
     CommandImplementation >;
 
+
 void uploaderRoutine( void * taskParam ) {
-    // log.yieldString( "Uploader started\n" );
+    JAC_LOGI( "uploader", "Uploader started" );
 
     while ( true ) {
         UploaderInterface interface;
-        interface.bindReportStreamBuffer( StreamBufferHandle_t(taskParam) );
+        interface.bindReporterChannel( *reinterpret_cast< TaskParams* >( taskParam )->reporterChannel );
+        interface.bindReaderChannel( *reinterpret_cast< TaskParams* >( taskParam )->readerChannel );
 
         ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
-        interface.discardBufferedStdin();
+        interface.discardBufferedInput();
 
         do {
             interface.interpretCommand();
@@ -41,11 +49,15 @@ void uploaderRoutine( void * taskParam ) {
     }
 }
 
-void jac::storage::initializeUploader( const char *path ) {
+void jac::storage::initializeUploader(
+        const char *path,
+        ChannelDesc *readerChannel,
+        ChannelDesc *reporterChannel ) {
     assert( uploaderTask == nullptr );
     basePath = path;
-    StreamBufferHandle_t reportSB = xStreamBufferCreate( 512, 1 );
-    xTaskCreate( uploaderRoutine, "uploader", 3584, reportSB, 1, &uploaderTask );
+    taskParams.readerChannel = readerChannel;
+    taskParams.reporterChannel = reporterChannel;
+    xTaskCreate( uploaderRoutine, "uploader", 3584, &taskParams, 1, &uploaderTask );
 }
 
 void jac::storage::enterUploader() {
