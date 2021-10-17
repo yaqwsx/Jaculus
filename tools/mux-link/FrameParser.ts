@@ -21,7 +21,7 @@ class FrameParser extends Transform {
     private _awaitLen: boolean;
 
     constructor(opts?: TransformOptions) {
-        super({ ...opts, readableObjectMode: true, writableObjectMode: true })
+        super({ ...opts, readableObjectMode: true })
 
         this._buffer = Buffer.alloc(0)
         this._frameRem = 0
