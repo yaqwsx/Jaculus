@@ -33,7 +33,7 @@ port.open(function (err: any) {
 rl.on('line', function (line: string) {
     let buf = Buffer.from(line + '\n')
     console.log("Write", buf.toString())
-    encoder.write({ data: buf, channelId: 1 })
+    encoder.write({ data: buf, channelId: 2 })
 })
 
 setTimeout(function () {

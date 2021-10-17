@@ -9,7 +9,7 @@ const packetDataMaxLen = 251
 const frameMaxLen = 257
 class FrameEncoder extends Transform {
     constructor(opts?: TransformOptions) {
-        super({ ...opts, readableObjectMode: true, writableObjectMode: true })
+        super({ ...opts, writableObjectMode: true })
     }
 
     _transform(chunk: { data: Buffer, channelId: number }, encoding: BufferEncoding, callback: TransformCallback): void {        
