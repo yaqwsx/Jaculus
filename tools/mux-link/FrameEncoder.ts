@@ -14,6 +14,7 @@ class FrameEncoder extends Transform {
 
     _transform(chunk: { data: Buffer, channelId: number }, encoding: BufferEncoding, callback: TransformCallback): void {        
         let chunkInd = 0
+        // console.log('Wchunk', chunk.data.length)
         while (chunkInd < chunk.data.length) {
             let packetDataLen = Math.min(chunk.data.length - chunkInd, packetDataMaxLen)
             let packet = Buffer.alloc(1 + packetDataLen + 2)
@@ -32,7 +33,7 @@ class FrameEncoder extends Transform {
             frameBuf[0] = 0
             frameBuf[1] = cobsLen
             let frame = frameBuf.slice(0, cobsLen + 2)
-            console.log(frame)
+            // console.log(frame)
             this.push(frame)
             chunkInd += packetDataLen
         }
