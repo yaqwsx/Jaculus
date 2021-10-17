@@ -92,7 +92,7 @@ void processSourceFrame( uint8_t *data, size_t len ) {
     // JAC_LOGI( "link", "Dec" );
     size_t packetBytes = jac::link::decodeFrame( data, len, packetBuf.data(), packetBuf.size() );
     // JAC_LOGI( "link", "DecE %d", int(packetBytes) );
-    
+
     if (packetBytes > 0) {
         uint8_t cid = packetBuf[0];
         auto channelDesc = channelDescByCid( sourceDescs, cid );
@@ -185,27 +185,29 @@ void jac::link::bindSourceChannel( const ChannelDesc &sourceDesc ) {
 }
 
 void jac::link::writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len, TickType_t timeout ) {
-    xStreamBufferSend( sinkDesc.sb, data, len, timeout );
-    notifySink( sinkDesc );
-    // JAC_LOGI( "link", "%d: Write %d", int(sinkDesc.cid), len );
+    // Make sure to notifySink even if we exceed the buffer
+    while (len > 0) {
+        size_t avail = xStreamBufferSpacesAvailable( sinkDesc.sb );
+        size_t chunkBytes = std::min( len, avail );
+        xStreamBufferSend( sinkDesc.sb, data, chunkBytes, timeout );
+        notifySink( sinkDesc );
+        len -= chunkBytes;
+    }
 }
 
 size_t jac::link::readSource( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, TickType_t timeout ) {
     size_t bytes = xStreamBufferReceive( sourceDesc.sb, data, len, timeout );
-    // JAC_LOGI( "link", "%d: Read %d", int(sourceDesc.cid), bytes );
     return bytes;
 }
 
 size_t jac::link::readSourceAtLeast( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, size_t atLeast, TickType_t timeout ) {
-    assert( atLeast <= len );
-    // auto out = channelDescByCid( sinkDescs, 2 );
-    // writeSink( out.value(), reinterpret_cast< const uint8_t* >( "R\n" ), 2);
+    assert( atLeast < len );
     size_t bytes = readSource( sourceDesc, data, atLeast, timeout );
     // JAC_LOGI( "link", "%d: ReadA %d", int(sourceDesc.cid), bytes );
     data += bytes;
     len -= bytes;
     // Read more bytes that may be in buffer
-    // bytes += readSource( sourceDesc, data, len, 0 );
+    bytes += readSource( sourceDesc, data, len, 0 );
     return bytes;
 }
 
