@@ -1,6 +1,7 @@
 #include "sdkconfig.h"
 
 #include <esp_system.h>
+#include <esp_log.h>
 // This shouldn't be necessary, but ESP-IDF has broken guards.
 // Relevant issue: https://github.com/espressif/esp-idf/issues/7204
 extern "C" {
@@ -38,7 +39,7 @@ extern "C" {
 #endif
 
 void gpioIntr(void *arg) {
-    jac::storage::enterUploader();
+    // jac::storage::enterUploader();
 }
 
 void setupGpio() {
@@ -69,6 +70,23 @@ void setupUartDriver() {
     esp_vfs_dev_uart_use_driver( 0 );
 }
 
+static jac::link::ChannelDesc runtimeLogChannel;
+static std::mutex runtimeLogMutex;
+
+void setupLogToChannel( uint8_t channel ) {
+    runtimeLogChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), channel };
+    jac::link::bindSinkChannel( runtimeLogChannel );
+    esp_log_set_vprintf( []( const char * fmt, va_list args ) -> int {
+        static std::array<uint8_t, 128> buffer;
+        std::unique_lock lock{runtimeLogMutex};
+        int bytes = vsnprintf( reinterpret_cast< char *>( buffer.data() ), buffer.size(), fmt, args );
+        if (bytes > 0) {
+            jac::link::writeSink( runtimeLogChannel, buffer.data(), bytes, 1000 );
+        }
+        return bytes;
+    });
+}
+
 extern "C" void app_main() {
     using namespace jac;
 
@@ -85,17 +103,26 @@ extern "C" void app_main() {
 
     setupUartDriver(); // Without UART drive stdio is non-blocking
     setupGpio();
+    setupLogToChannel( 3 );
     link::initializeLink();
     auto stdoutDesc = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 1 };
-    link::bindSinkChannel( stdoutDesc );
     link::bindSourceChannel( stdoutDesc );
+    link::bindSinkChannel( stdoutDesc );
+
+    auto transferReaderChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 2 };
+    auto transferReporterChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 2 };
+    link::bindSourceChannel( transferReaderChannel );
+    link::bindSinkChannel( transferReporterChannel );
+
     storage::initializeFatFs( "/spiflash" );
-    storage::initializeUploader( "/spiflash" );
+    storage::initializeUploader( "/spiflash", &transferReaderChannel, &transferReporterChannel );
     initNvs();
 
+    storage::enterUploader();
+    
     while ( true ) {
         sys_delay_ms( 10 );
-        jac::link::notifySink( stdoutDesc );
+        link::notifySink( stdoutDesc );
     }
 
     #ifdef ENABLE_TEMPORARY_DEBUGGER

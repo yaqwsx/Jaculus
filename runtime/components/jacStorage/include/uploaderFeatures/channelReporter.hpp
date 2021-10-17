@@ -1,38 +1,39 @@
 #pragma once
 
-#include "link.hpp"
+#include <link.hpp>
 
 #include <sstream>
+#include <string_view>
 
 namespace jac::storage {
 
 template < typename Self >
 class ChannelReporter {
-    ChannelDesc ch;
+    jac::link::ChannelDesc ch;
 
 public:
-    void bindReportChannel(const ChannelDesc &ch) {
+    void bindReporterChannel(const jac::link::ChannelDesc &ch) {
         this->ch = ch;
     }
 
-    void yieldBuffer( char *data, size_t len ) {
-        jac::link::writeSink( ch, s, len );
+    void yieldBuffer( const uint8_t *data, size_t len ) {
+        jac::link::writeSink( ch, data, len );
     }
 
-    void yieldString( const std::string& s ) {
-        jac::link::writeSink( ch, s.c_str(), s.length() );
+    void yieldString( const std::string_view& sv ) {
+        jac::link::writeSink( ch, reinterpret_cast< const uint8_t *>( sv.data() ), sv.length() );
     }
 
-    void yieldError( const std::string& s ) {
+    void yieldError( const std::string_view& sv ) {
         std::stringstream ss;
-        ss << "ERROR " << s << "\n";
-        jac::link::writeSink( ch, s.c_str(), s.length() );
+        ss << "ERROR " << sv << "\n";
+        jac::link::writeSink( ch, reinterpret_cast< const uint8_t *>( sv.data() ), sv.length() );
     }
 
-    void yieldWarning( const std::string& s ) {
+    void yieldWarning( const std::string_view& sv ) {
         std::stringstream ss;
-        ss << "WARNING " << s << "\n";
-        jac::link::writeSink( ch, s.c_str(), s.length() );
+        ss << "WARNING " << sv << "\n";
+        jac::link::writeSink( ch, reinterpret_cast< const uint8_t *>( ss.str().c_str() ), ss.str().length() );
     }
 };
 

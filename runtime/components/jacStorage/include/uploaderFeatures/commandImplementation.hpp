@@ -85,7 +85,7 @@ public:
                 encBuffer.get(), ENCODED_SIZE, &processed,
                 fileBuffer.get(), bytesRead );
             assert( result != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
-            self().yieldBuffer( reinterpret_cast< char * >( encBuffer.get() ), processed );
+            self().yieldBuffer( reinterpret_cast< uint8_t * >( encBuffer.get() ), processed );
         }
         self().yieldString( "\n" );
 

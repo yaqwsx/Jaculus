@@ -18,7 +18,7 @@ public:
         return c;
     }
 
-    void discardBufferedStdin() {
+    void discardBufferedInput() {
         std::cin.ignore( std::cin.rdbuf()->in_avail() );
     }
 };

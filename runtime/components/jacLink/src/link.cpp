@@ -1,5 +1,6 @@
 #include "link.hpp"
 #include "encoding.hpp"
+#include <jacLog.hpp>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
@@ -17,7 +18,7 @@
 
 namespace {
 
-using jac::link::ChannelDesc;
+using namespace jac::link;
 
 std::vector<ChannelDesc> sinkDescs;
 std::vector<ChannelDesc> sourceDescs;
@@ -29,20 +30,20 @@ EventGroupHandle_t sinkEvents;
 const uint32_t eventMask = 0x00ffffff;
 const uint8_t maxCid = 23;
 
-std::optional<ChannelDesc> channelDescByCid( const std::vector<ChannelDesc> &collection, uint8_t cid ) {
+std::optional<ChannelDesc*> channelDescByCid( std::vector<ChannelDesc> &collection, uint8_t cid ) {
     auto it = std::find_if( collection.begin(), collection.end(),
         [=]( auto a ) { return a.cid == cid; } );
     if ( it != collection.end() ) {
-        return *it;
+        return &(*it);
     }
     return std::nullopt;
 }
 
-std::optional<ChannelDesc> channelDescByStream( const std::vector<ChannelDesc> &collection, StreamBufferHandle_t sb ) {
+std::optional<ChannelDesc*> channelDescByStream( std::vector<ChannelDesc> &collection, StreamBufferHandle_t sb ) {
     auto it = std::find_if( collection.begin(), collection.end(),
         [=]( auto a ) { return a.sb == sb; } );
     if ( it != collection.end() ) {
-        return *it;
+        return &(*it);
     }
     return std::nullopt;
 }
@@ -56,7 +57,7 @@ uint32_t decodeLowestBitPosition( uint32_t bits ) {
 }
 
 void sinkMuxRoutine( void * taskParam ) {
-    static uint8_t packetBuf[jac::link::packetDataMaxSize + 3];
+    static uint8_t packetBuf[jac::link::packetMaxSize];
     static uint8_t frameBuf[jac::link::frameMaxSize];
 
     while ( true ) {
@@ -68,14 +69,15 @@ void sinkMuxRoutine( void * taskParam ) {
         auto channelDesc = channelDescByCid( sinkDescs, evCid );
         xEventGroupClearBits( sinkEvents, evBit );
         if ( !channelDesc.has_value() ) {
-            // warning channel id unassigned
+            JAC_LOGW( "link", "Sink channel %d unassigned", evCid );
             continue;
         }
 
-        while ( size_t dataBytes = xStreamBufferReceive( channelDesc->sb, packetBuf + 1, sizeof( packetBuf ) - 3, 0) ) {
-            packetBuf[0] = channelDesc->cid;
+        while ( size_t dataBytes = xStreamBufferReceive( channelDesc.value()->sb, packetBuf + 1, sizeof( packetBuf ) - 3, 0) ) {
+            packetBuf[0] = channelDesc.value()->cid;
             size_t packetBytes = jac::link::appendCrc( packetBuf, dataBytes + 1, sizeof( packetBuf ) );
             size_t frameBytes = jac::link::encodeFrame( packetBuf, packetBytes, frameBuf, sizeof( frameBuf ) );
+            // JAC_LOGI( "link", "Tx %d", int(frameBytes) );
             uart_write_bytes( UART_NUM_0, frameBuf, frameBytes );
         }
 
@@ -86,16 +88,25 @@ void sinkMuxRoutine( void * taskParam ) {
 }
 
 void processSourceFrame( uint8_t *data, size_t len ) {
-    static std::array<uint8_t, jac::link::packetDataMaxSize + 3> packetBuf;
+    static std::array<uint8_t, jac::link::packetMaxSize> packetBuf;
+    // JAC_LOGI( "link", "Dec" );
     size_t packetBytes = jac::link::decodeFrame( data, len, packetBuf.data(), packetBuf.size() );
+    // JAC_LOGI( "link", "DecE %d", int(packetBytes) );
+    
     if (packetBytes > 0) {
         uint8_t cid = packetBuf[0];
         auto channelDesc = channelDescByCid( sourceDescs, cid );
         if ( !channelDesc.has_value() ) {
-            // warning channel id unassigned
+            JAC_LOGW( "link", "Src channel %d unassigned", cid );
             return;
         }
-        xStreamBufferSend( channelDesc->sb, packetBuf.data() + 1, packetBytes - 1, portMAX_DELAY );
+        // JAC_LOGI( "link", "RxValid %d: %d", int(cid), int(packetBytes) );
+        size_t packetDatabytes = packetBytes - 1;
+        if ( xStreamBufferSpacesAvailable( channelDesc.value()->sb ) < packetDatabytes ) {
+            JAC_LOGW( "link", "Src channel %d buffer full", cid );
+        }
+        xStreamBufferSend( channelDesc.value()->sb, packetBuf.data() + 1, packetDatabytes, portMAX_DELAY );
+        // JAC_LOGI( "link", "RxForwarded" );
     }
 }
 
@@ -104,6 +115,7 @@ void processSourceChunk( uint8_t *data, size_t len ) {
     static size_t frameInd = 0;
     static size_t frameRem = 0;
     static bool awaitLen = false;
+    // JAC_LOGI( "link", "RxChunk %d", len );
 
     size_t position = 0;
     while ( position < len ) {
@@ -128,6 +140,7 @@ void processSourceChunk( uint8_t *data, size_t len ) {
         }
         position++;
     }
+    // JAC_LOGI( "link", "RxChunkE" );
 }
 
 void sourceDemuxRoutine( void * taskParam ) {
@@ -154,7 +167,7 @@ void jac::link::bindSinkChannel( const ChannelDesc &sinkDesc ) {
     auto channelDesc = channelDescByCid( sinkDescs, sinkDesc.cid );
 
     if ( channelDesc.has_value() ) {
-        channelDesc->sb = sinkDesc.sb;
+        channelDesc.value()->sb = sinkDesc.sb;
     } else {
         sinkDescs.push_back( sinkDesc );
     }
@@ -165,19 +178,34 @@ void jac::link::bindSourceChannel( const ChannelDesc &sourceDesc ) {
     auto channelDesc = channelDescByCid( sourceDescs, sourceDesc.cid );
 
     if ( channelDesc.has_value() ) {
-        channelDesc->sb = sourceDesc.sb;
+        channelDesc.value()->sb = sourceDesc.sb;
     } else {
         sourceDescs.push_back( sourceDesc );
     }
 }
 
-void jac::link::writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len ) {
-    xStreamBufferSend( sinkDesc.sb, data, len, portMAX_DELAY );
+void jac::link::writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len, TickType_t timeout ) {
+    xStreamBufferSend( sinkDesc.sb, data, len, timeout );
     notifySink( sinkDesc );
+    // JAC_LOGI( "link", "%d: Write %d", int(sinkDesc.cid), len );
 }
 
-size_t jac::link::readSource( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, TickType_t timeout = portMAX_DELAY ) {
+size_t jac::link::readSource( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, TickType_t timeout ) {
     size_t bytes = xStreamBufferReceive( sourceDesc.sb, data, len, timeout );
+    // JAC_LOGI( "link", "%d: Read %d", int(sourceDesc.cid), bytes );
+    return bytes;
+}
+
+size_t jac::link::readSourceAtLeast( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, size_t atLeast, TickType_t timeout ) {
+    assert( atLeast <= len );
+    // auto out = channelDescByCid( sinkDescs, 2 );
+    // writeSink( out.value(), reinterpret_cast< const uint8_t* >( "R\n" ), 2);
+    size_t bytes = readSource( sourceDesc, data, atLeast, timeout );
+    // JAC_LOGI( "link", "%d: ReadA %d", int(sourceDesc.cid), bytes );
+    data += bytes;
+    len -= bytes;
+    // Read more bytes that may be in buffer
+    // bytes += readSource( sourceDesc, data, len, 0 );
     return bytes;
 }
 
