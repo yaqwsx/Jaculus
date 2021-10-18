@@ -1,8 +1,11 @@
-// const log = require('why-is-node-running')
 const SerialPort = require('serialport')
-// import { cobsEncode } from "./cobs"
+import { Stream } from "stream"
+import { ChannelDemuxer } from "./ChannelDemuxer"
+import { ChannelIdEnhancer } from "./ChannelIdEnhancer"
+import { ChannelMuxer } from "./ChannelMuxer"
 import { FrameEncoder } from "./FrameEncoder"
-const { FrameParser } = require('./FrameParser')
+import { FrameParser } from './FrameParser'
+import { StreamLogger } from "./StreamLogger"
 const readline = require("readline")
 const port = SerialPort('COM3', {
     baudRate: 921600,
@@ -10,19 +13,23 @@ const port = SerialPort('COM3', {
     hupcl: false
 })
 
-const parser = port.pipe(new FrameParser({}))
+const parser = port.pipe(new FrameParser())
+const demuxer = parser.pipe(new ChannelDemuxer())
+const uploaderInput = demuxer.pipeChannel(new StreamLogger('UPL'), 2)
+const runtimeLogInput = demuxer.pipeChannel(new StreamLogger('LOG'), 3)
+
+const output = new StreamLogger('W')
+const idEnhancer = new ChannelIdEnhancer(2)
 const encoder = new FrameEncoder()
-encoder.pipe(port)
+output.pipe(idEnhancer).pipe(encoder).pipe(port)
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: false
-});
-
-parser.on('data', function(chunk: { data: Buffer, channelId: number }) {
-    console.log('Read', chunk.channelId, chunk.data.toString())
-})
+// uploaderInput.on('data', function(chunk: Buffer) {
+//     console.log('UP', chunk.toString())
+// })
+// 
+// runtimeLogInput.on('data', function(chunk: Buffer) {
+//     console.log('LOG', chunk.toString())
+// })
 
 port.open(function (err: any) {
     if (err) {
@@ -30,21 +37,11 @@ port.open(function (err: any) {
     }
 })
 
-rl.on('line', function (line: string) {
+readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false
+}).on('line', function (line: string) {
     let buf = Buffer.from(line + '\n')
-    console.log("Write", buf.toString())
-    encoder.write({ data: buf, channelId: 2 })
+    output.write(buf)
 })
-
-setTimeout(function () {
-    setTimeout(function () {
-        // log() // logs out active handles that are keeping node running
-    }, 500)
-    
-    //port.write(Buffer.from("0003FF1122", "hex"))
-    
-    // rl.question("", function (bla: string) {
-    // });
-
-}, 1000);
-
