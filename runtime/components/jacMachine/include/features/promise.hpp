@@ -71,6 +71,7 @@ private:
         // Build prototype
         duk_function_list_entry objectMethods[] = {
             { "catch", dukPromiseCatch, 1 },
+            { "finally", dukPromiseFinally, 1 },
             { "then", dukPromiseThen, DUK_VARARGS },
             { nullptr, nullptr, 0 }
         };
@@ -195,11 +196,6 @@ private:
         return DUK_RET_TYPE_ERROR;
     }
 
-    static duk_ret_t dukPromiseCatch( duk_context *ctx ) {
-        // TBA: Implement
-        return DUK_RET_TYPE_ERROR;
-    }
-
     // Take a value, transform it via transform. If the transformed value is a
     // value, directly pass it settle, otherwise, if it is a promise, resolve it
     // or reject it. Takes a single argument: the resolved value. The function
@@ -223,12 +219,33 @@ private:
             duk_call( ctx, 1 );
             return 0;
         }
-        bool isPromise = duk_is_object( ctx, -1 ) && duk_has_prop_string( ctx, -1, "_promiseStatus" );
+
+        const auto transformResOffset = duk_get_top_index(ctx);
+        bool isPromise = duk_is_object( ctx, transformResOffset ) && duk_has_prop_string( ctx, transformResOffset, "_promiseStatus" );
         if ( isPromise ) {
-            duk_get_prop_string( ctx, -1, "this" );
-            duk_get_prop_string( ctx, funcOffset, "resolve" );
-            duk_get_prop_string( ctx, funcOffset, "reject" );
-            duk_call( ctx, 2 );
+            duk_get_prop_string( ctx, transformResOffset, "_promiseStatus" );
+            int status = duk_require_int( ctx, -1 );
+            if ( status == 0 ) {
+                // Unresolved
+                duk_get_prop_string( ctx, transformResOffset, "_onResolved" );
+                duk_get_prop_string( ctx, funcOffset, "resolve" );
+                dukAppendArray( ctx, -2 );
+                duk_get_prop_string( ctx, transformResOffset, "_onRejected" );
+                duk_get_prop_string( ctx, funcOffset, "reject" );
+                dukAppendArray( ctx, -2 );
+            }
+            else if ( status == 1 ) {
+                // Resolved, invoke callback directly
+                duk_get_prop_string( ctx, funcOffset, "resolve" );
+                duk_get_prop_string( ctx, transformResOffset, "_value" );
+                duk_call( ctx, 1 );
+            }
+            else if ( status == -1 ) {
+                // Rejected, invoke callback directly
+                duk_get_prop_string( ctx, funcOffset, "reject" );
+                duk_get_prop_string( ctx, transformResOffset, "_value" );
+                duk_call( ctx, 1 );
+            }
         }
         else {
             duk_get_prop_string( ctx, funcOffset, "settle" );
@@ -239,7 +256,15 @@ private:
     }
 
     static duk_ret_t dukDoNothing( duk_context *ctx ) {
-        return 0;
+        // Return 1st passed argument
+        return 1;
+    }
+
+    static duk_ret_t dukRethrow(duk_context *ctx) {
+        int argCount = duk_get_top( ctx );
+        if (argCount != 1)
+            return DUK_RET_ERROR;
+        return duk_throw(ctx);
     }
 
     // Takes two arguments: resolve handler and reject handler
@@ -253,11 +278,11 @@ private:
         const int rejectArgOffset = 1;
         if ( argCount == 1 ) {
             // Push dummy instead of the second argument
-            duk_push_c_lightfunc( ctx, dukDoNothing, 1, 1, 0 );
+            duk_push_c_lightfunc( ctx, dukRethrow, 1, 1, 0 );
         }
 
-        // Push constructor, so we can call it with the executor
-        duk_push_c_function( ctx, dukPromiseConstructor, 1 );
+        duk_push_global_object( ctx );
+        duk_get_prop_string( ctx, -1, "Promise" );
 
         // Prepare new promise executor
         duk_push_c_function( ctx, dukPromiseThenImpl, 2 );
@@ -270,6 +295,95 @@ private:
 
         // Invoke Promise contructor
         duk_new( ctx, 1 );
+        return 1;
+    }
+
+    // Takes one argument: reject handler
+    static duk_ret_t dukPromiseCatch( duk_context *ctx ) {
+        int argCount = duk_get_top( ctx );
+        if ( argCount != 1)
+            return DUK_RET_ERROR;
+
+        const int rejectArgOffset = 0;
+        const int resolveArgOffset = 1;
+
+        // Push dummy instead of the resolve function
+        duk_push_c_lightfunc( ctx, dukDoNothing, 1, 1, 0 );
+
+        duk_push_global_object( ctx );
+        duk_get_prop_string( ctx, -1, "Promise" );
+
+        // Prepare new promise executor
+        duk_push_c_function( ctx, dukPromiseThenImpl, 2 );
+        duk_push_this( ctx );
+        duk_put_prop_string( ctx, -2, "sourcePromise" );
+        duk_dup( ctx, resolveArgOffset );
+        duk_put_prop_string( ctx, -2, "onResolved" );
+        duk_dup( ctx, rejectArgOffset );
+        duk_put_prop_string( ctx, -2, "onRejected" );
+
+        // Invoke Promise contructor
+        duk_new( ctx, 1 );
+
+        duk_dup( ctx, rejectArgOffset );
+        duk_put_prop_string( ctx, -2, "_iam_catch" );
+
+        return 1;
+    }
+
+    // Takes one argument (resolve value) and requires function to have .settle parameter, which
+    // is the function that should be called in JS's .finally(...).
+    // Any result from .settle is discarded, and resolved value is returned instead.
+    static duk_ret_t dukFinallyResolveWrapper(duk_context *ctx) {
+        duk_push_current_function( ctx );
+        duk_get_prop_string( ctx, -1, "settle" );
+        duk_call(ctx, 0);
+        duk_pop_2(ctx); // drop return value and current_function
+        return 1;
+    }
+
+    // Takes one argument (thrown error) and requires function to have .settle parameter, which
+    // is the function that should be called in JS's .finally(...)
+    // Any result from .settle is discarded, and thrown error is re-thrown instead.
+    static duk_ret_t dukFinallyRejectWrapper(duk_context *ctx) {
+        duk_push_current_function( ctx );
+        duk_get_prop_string( ctx, -1, "settle" );
+        duk_call(ctx, 0);
+        duk_pop_2(ctx); // drop return value and current_function
+        return duk_throw(ctx);
+    }
+
+    // Takes one argument: settle handler
+    static duk_ret_t dukPromiseFinally( duk_context *ctx ) {
+        int argCount = duk_get_top( ctx );
+        if ( argCount != 1)
+            return DUK_RET_ERROR;
+
+        const int settleArgOffset = 0;
+
+        duk_push_global_object( ctx );
+        duk_get_prop_string( ctx, -1, "Promise" );
+
+        // Prepare new promise executor
+        duk_push_c_function( ctx, dukPromiseThenImpl, 2 );
+        duk_push_this( ctx );
+        duk_put_prop_string( ctx, -2, "sourcePromise" );
+
+        duk_push_c_function(ctx, dukFinallyResolveWrapper, 1);
+        duk_dup(ctx, settleArgOffset);
+        duk_put_prop_string(ctx, -2, "settle");
+        duk_put_prop_string( ctx, -2, "onResolved" );
+
+        duk_push_c_function(ctx, dukFinallyRejectWrapper, 1);
+        duk_dup(ctx, settleArgOffset);
+        duk_put_prop_string(ctx, -2, "settle");
+        duk_put_prop_string(ctx, -2, "onRejected" );
+
+        // Invoke Promise contructor
+        duk_new( ctx, 1 );
+
+        duk_dup( ctx, settleArgOffset );
+        duk_put_prop_string( ctx, -2, "_iam_finally" );
         return 1;
     }
 
@@ -304,7 +418,7 @@ private:
         duk_put_prop_string( ctx, -2, "resolve" );
         duk_dup( ctx, 1 );
         duk_put_prop_string( ctx, -2, "reject" );
-        duk_dup( ctx, 1 );
+        duk_dup( ctx, 0 );  // .catch or onRejected "erases" the rejected status (or explicitely rethrows), so settle must be resolve again.
         duk_put_prop_string( ctx, -2, "settle" );
 
         duk_get_prop_string( ctx, funcOffset, "sourcePromise" );
@@ -372,9 +486,6 @@ private:
         duk_push_this( ctx );
         auto thisOffset = duk_get_top_index( ctx );
 
-        dukDumpStack( ctx, "dukRejectInternal" );
-        dukRaiseError( ctx, "In dukRejectInternal");
-
         duk_get_prop_string( ctx, -1, "_promiseStatus" );
         if ( duk_require_int( ctx, -1 ) != 0 )
             duk_error( ctx, DUK_ERR_TYPE_ERROR,
@@ -388,6 +499,11 @@ private:
 
         // Invoke onRejected
         duk_get_prop_string( ctx, thisOffset, "_onRejected" );
+        if(duk_get_length(ctx, -1) == 0) {
+            dukDumpStack( ctx, "Uncaught exception in Promise" );
+            dukRaiseError( ctx, "Uncaught exception in Promise");
+        }
+
         dukForEach( ctx, [&]( int idx ) {
             self.schedule([&]( duk_context *jobContext ) {
                 // There is already the function
