@@ -1,6 +1,6 @@
 import { Transform } from "stream"
 import { crc16xmodem } from "crc"
-import { cobsEncode } from "./cobs"
+import { cobsEncode } from "./cobs.js"
 import { Buffer } from "buffer"
 
 import type { TransformOptions, TransformCallback } from "stream"
