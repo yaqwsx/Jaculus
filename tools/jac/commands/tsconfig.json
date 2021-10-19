@@ -1,0 +1,14 @@
+{
+    "extends": "../tsconfig-base.json",
+    "include": [
+        "./*"
+    ],
+    "compilerOptions": {
+        "target": "es2021",
+        "module": "es2020",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+    }
+}

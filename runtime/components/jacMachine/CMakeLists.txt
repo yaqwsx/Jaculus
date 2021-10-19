@@ -6,7 +6,7 @@ idf_component_register(
     SRCS
     INCLUDE_DIRS include
     REQUIRES jacFilesystem
-    EMBED_FILES assets/regeneratorRuntime.js)
+    EMBED_FILES assets/regeneratorRuntime.js assets/rtosTimerWrappers.js)
 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${COMPONENT_DIR}/releng)
