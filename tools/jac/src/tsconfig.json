@@ -9,10 +9,11 @@
         },
         {
             "path": "./util"
+        },
+        {
+            "path": "./mux"
         }
     ],
-    "paths": {
-    },
     "compilerOptions": {
         "target": "es2021",
         "module": "es2020",
