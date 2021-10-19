@@ -2,7 +2,6 @@ const SerialPort = require('serialport')
 import { Stream } from "stream"
 import { ChannelDemuxer } from "./ChannelDemuxer"
 import { ChannelIdEnhancer } from "./ChannelIdEnhancer"
-import { ChannelMuxer } from "./ChannelMuxer"
 import { FrameEncoder } from "./FrameEncoder"
 import { FrameParser } from './FrameParser'
 import { StreamLogger } from "./StreamLogger"
