@@ -1,5 +1,5 @@
 import { Transform } from "stream"
-import { crc16xmodem } from "crc"
+import crc from "crc"
 import { cobsEncode } from "./cobs.js"
 import { Buffer } from "buffer"
 
@@ -24,8 +24,8 @@ class FrameEncoder extends Transform {
             chunk.data.copy(packet, 1, chunkInd, chunkInd + packetDataLen)
 
             // Append CRC to packet
-            let crc = crc16xmodem(packet.slice(0, packet.length - 2))
-            packet.writeUInt16BE(crc, packet.length - 2)
+            let crcValue = crc.crc16xmodem(packet.slice(0, packet.length - 2))
+            packet.writeUInt16BE(crcValue, packet.length - 2)
             
             let frameBuf = Buffer.alloc(frameMaxLen)
             
