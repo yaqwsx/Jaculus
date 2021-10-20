@@ -3,6 +3,11 @@
     "include": [
         "./*"
     ],
+    "references": [
+        {
+            "path": "../src/mux"
+        }
+    ],
     "compilerOptions": {
         "target": "es2021",
         "module": "es2020",

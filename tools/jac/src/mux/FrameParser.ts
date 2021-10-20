@@ -1,6 +1,6 @@
 import { Transform } from "stream"
-import { crc16xmodem } from "crc"
-import { cobsDecode } from "./cobs"
+import crc from "crc"
+import { cobsDecode } from "./cobs.js"
 import { Buffer } from "buffer"
 
 import type { TransformOptions, TransformCallback } from "stream"
@@ -31,7 +31,7 @@ class FrameParser extends Transform {
     processFrame() {
         let cobsDec = cobsDecode(this._buffer)
         if (cobsDec.length >= 3) {
-            let crcRem = crc16xmodem(cobsDec)
+            let crcRem = crc.crc16xmodem(cobsDec)
             // CRC of data including the CRC yields a 0 remainder:
             if (crcRem == 0) {
                 let channelId = cobsDec[0]
