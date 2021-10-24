@@ -19,6 +19,8 @@ void bindSourceChannel( const ChannelDesc &sourceDesc );
 void writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len, TickType_t timeout = portMAX_DELAY );
 size_t readSource( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, TickType_t timeout = portMAX_DELAY );
 size_t readSourceAtLeast( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, size_t atLeast, TickType_t timeout = portMAX_DELAY );
+void discardSourceContent( const ChannelDesc &sourceDesc );
+
 
 void notifySink( const ChannelDesc &sinkDesc );
 

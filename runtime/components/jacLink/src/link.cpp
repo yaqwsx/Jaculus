@@ -100,7 +100,7 @@ void processSourceFrame( uint8_t *data, size_t len ) {
             JAC_LOGW( "link", "Src channel %d unassigned", cid );
             return;
         }
-        // JAC_LOGI( "link", "RxValid %d: %d", int(cid), int(packetBytes) );
+        JAC_LOGI( "link", "RxValid %d: %d", int(cid), int(packetBytes) );
         size_t packetDatabytes = packetBytes - 1;
         if ( xStreamBufferSpacesAvailable( channelDesc.value()->sb ) < packetDatabytes ) {
             JAC_LOGW( "link", "Src channel %d buffer full", cid );
@@ -115,7 +115,7 @@ void processSourceChunk( uint8_t *data, size_t len ) {
     static size_t frameInd = 0;
     static size_t frameRem = 0;
     static bool awaitLen = false;
-    // JAC_LOGI( "link", "RxChunk %d", len );
+    JAC_LOGI( "link", "RxChunk %d", len );
 
     size_t position = 0;
     while ( position < len ) {
@@ -182,6 +182,12 @@ void jac::link::bindSourceChannel( const ChannelDesc &sourceDesc ) {
     } else {
         sourceDescs.push_back( sourceDesc );
     }
+}
+
+void jac::link::discardSourceContent( const ChannelDesc &sourceDesc ) {
+    static std::array<uint8_t, 128> foo;
+    while ( xStreamBufferReceive( sourceDesc.sb, foo.data(), foo.size(), 0 ) > 0 );
+    // xStreamBufferReset crashes and burns
 }
 
 void jac::link::writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, size_t len, TickType_t timeout ) {
