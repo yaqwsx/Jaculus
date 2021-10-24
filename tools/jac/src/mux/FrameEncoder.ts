@@ -29,11 +29,11 @@ class FrameEncoder extends Transform {
             
             let frameBuf = Buffer.alloc(frameMaxLen)
             
-            let cobsLen = cobsEncode(packet, frameBuf.slice(2, frameBuf.length - 2))
+            let cobsLen = cobsEncode(packet, frameBuf.slice(2, frameBuf.length))
             frameBuf[0] = 0
             frameBuf[1] = cobsLen
             let frame = frameBuf.slice(0, cobsLen + 2)
-            // console.log(frame)
+            // console.log(frame.toString())
             this.push(frame)
             chunkInd += packetDataLen
         }
