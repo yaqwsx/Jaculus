@@ -35,17 +35,13 @@ using UploaderInterface = Mixin<
 void uploaderRoutine( void * taskParam ) {
     JAC_LOGI( "uploader", "Uploader started" );
 
+    UploaderInterface interface;
+    interface.bindReporterChannel( reinterpret_cast< TaskParams* >( taskParam )->reporterChannel );
+    interface.bindReaderChannel( reinterpret_cast< TaskParams* >( taskParam )->readerChannel );
+    interface.discardBufferedInput();
+
     while ( true ) {
-        UploaderInterface interface;
-        interface.bindReporterChannel( reinterpret_cast< TaskParams* >( taskParam )->reporterChannel );
-        interface.bindReaderChannel( reinterpret_cast< TaskParams* >( taskParam )->readerChannel );
-
-        ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
-        interface.discardBufferedInput();
-
-        do {
-            interface.interpretCommand();
-        } while ( !interface.finished() );
+        interface.interpretCommand();
     }
 }
 
@@ -58,13 +54,6 @@ void jac::storage::initializeUploader(
     taskParams.readerChannel = readerChannel;
     taskParams.reporterChannel = reporterChannel;
     xTaskCreate( uploaderRoutine, "uploader", 3584, &taskParams, 1, &uploaderTask );
-}
-
-void jac::storage::enterUploader() {
-    if ( xPortInIsrContext() )
-        vTaskNotifyGiveFromISR( uploaderTask, nullptr );
-    else
-        xTaskNotifyGive( uploaderTask );
 }
 
 const char* jac::storage::getStoragePrefix() {

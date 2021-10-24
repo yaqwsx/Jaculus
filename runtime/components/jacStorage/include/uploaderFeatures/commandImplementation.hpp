@@ -19,7 +19,6 @@ extern "C" {
 #include <filesystem.hpp>
 #include <jacUtility.hpp>
 
-
 namespace jac::storage {
 
 using namespace std::string_literals;
@@ -33,10 +32,6 @@ public:
 
     const Self& self() const {
         return *static_cast< const Self* >( this );
-    }
-
-    bool finished() const {
-        return _finished;
     }
 
     void doList( const std::string& prefix ) {

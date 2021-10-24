@@ -39,7 +39,6 @@ extern "C" {
 #endif
 
 void gpioIntr(void *arg) {
-    // jac::storage::enterUploader();
 }
 
 void setupGpio() {
@@ -117,8 +116,6 @@ extern "C" void app_main() {
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash", &transferReaderChannel, &transferReporterChannel );
     initNvs();
-
-    storage::enterUploader();
     
     while ( true ) {
         sys_delay_ms( 10 );

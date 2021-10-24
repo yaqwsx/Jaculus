@@ -38,12 +38,12 @@ size_t jac::link::encodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest,
 size_t jac::link::decodeFrame( const uint8_t *src, size_t srcLen, uint8_t *dest, size_t destLen ) {
     auto cobsRes = cobs_decode( dest, destLen, src, srcLen );
     if ( cobsRes.status != COBS_DECODE_OK || cobsRes.out_len < 3 ) {
-        JAC_LOGW( "link", "decerr %d", int(cobsRes.status) );
+        JAC_LOGW( "link", "COBS err %d", int(cobsRes.status) );
         return 0;
     }
     uint16_t crcRem = jac::link::calculateCrc( dest, cobsRes.out_len );
     if (crcRem != 0) {
-        JAC_LOGW( "link", "crcerr" );
+        JAC_LOGW( "link", "CRC err" );
         return 0;
     }
     return cobsRes.out_len - 2;
