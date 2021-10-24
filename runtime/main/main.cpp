@@ -61,19 +61,19 @@ void setupUartDriver() {
         .parity    = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .rx_flow_ctrl_thresh = 127,
+        .rx_flow_ctrl_thresh = 63,
         .source_clk = UART_SCLK_APB,
     };
-    uart_driver_install( UART_NUM_0, 4096, 0, 0, NULL, 0 );
+    uart_driver_install( UART_NUM_0, 4096, 0, 0, NULL, ESP_INTR_FLAG_IRAM );
     uart_param_config( UART_NUM_0, &uart_config );
 
     esp_vfs_dev_uart_use_driver( 0 );
 }
 
-static jac::link::ChannelDesc runtimeLogChannel;
-static std::mutex runtimeLogMutex;
-
 void setupLogToChannel( uint8_t channel ) {
+    static jac::link::ChannelDesc runtimeLogChannel;
+    static std::mutex runtimeLogMutex;
+
     runtimeLogChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), channel };
     jac::link::bindSinkChannel( runtimeLogChannel );
     esp_log_set_vprintf( []( const char * fmt, va_list args ) -> int {
@@ -81,7 +81,7 @@ void setupLogToChannel( uint8_t channel ) {
         std::unique_lock lock{runtimeLogMutex};
         int bytes = vsnprintf( reinterpret_cast< char *>( buffer.data() ), buffer.size(), fmt, args );
         if (bytes > 0) {
-            jac::link::writeSink( runtimeLogChannel, buffer.data(), bytes, 1000 );
+            jac::link::writeSink( runtimeLogChannel, buffer.data(), bytes, 100 );
         }
         return bytes;
     });

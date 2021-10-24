@@ -37,8 +37,8 @@ void uploaderRoutine( void * taskParam ) {
 
     while ( true ) {
         UploaderInterface interface;
-        interface.bindReporterChannel( *reinterpret_cast< TaskParams* >( taskParam )->reporterChannel );
-        interface.bindReaderChannel( *reinterpret_cast< TaskParams* >( taskParam )->readerChannel );
+        interface.bindReporterChannel( reinterpret_cast< TaskParams* >( taskParam )->reporterChannel );
+        interface.bindReaderChannel( reinterpret_cast< TaskParams* >( taskParam )->readerChannel );
 
         ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
         interface.discardBufferedInput();

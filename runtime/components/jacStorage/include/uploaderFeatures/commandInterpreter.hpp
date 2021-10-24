@@ -54,7 +54,6 @@ public:
     }
 
     void interpretList() {
-        JAC_LOGI( "uploader", "LIST" );
         std::string prefix = readWord(); // It is OK if it is empty!
         if ( prefix.front() != '/' )
             prefix.insert( 0, "/" );
