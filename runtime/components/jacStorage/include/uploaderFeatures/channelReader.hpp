@@ -20,9 +20,9 @@ public:
     }
 
     char read() {
-        // JAC_LOGI( "RDR", "Read" );
+        JAC_LOGV( "RDR", "Read" );
         if ( bufIter == bufEnd ) {
-            // JAC_LOGI( "RDR", "Fetch" );
+            JAC_LOGD( "RDR", "Fetch" );
             size_t bytes = jac::link::readSourceAtLeast( *ch, buf.data(), buf.size(), 1 );
             bufIter = buf.begin();
             bufEnd = buf.begin() + bytes;
@@ -31,9 +31,9 @@ public:
     }
 
     char peek() {
-        // JAC_LOGI( "RDR", "Peek" );
+        JAC_LOGV( "RDR", "Peek" );
         if ( bufIter == bufEnd ) {
-            // JAC_LOGI( "RDR", "Fetch" );
+            JAC_LOGD( "RDR", "Fetch" );
             size_t bytes = jac::link::readSourceAtLeast( *ch, buf.data(), buf.size(), 1 );
             bufIter = buf.begin();
             bufEnd = buf.begin() + bytes;
