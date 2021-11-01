@@ -73,7 +73,7 @@ void setupLogToChannel( uint8_t channel ) {
     static jac::link::ChannelDesc runtimeLogChannel;
     static std::mutex runtimeLogMutex;
 
-    runtimeLogChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), channel };
+    runtimeLogChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 1024, 0 ), channel };
     jac::link::bindSinkChannel( runtimeLogChannel );
     esp_log_set_vprintf( []( const char * fmt, va_list args ) -> int {
         static std::array<uint8_t, 128> buffer;
@@ -104,18 +104,21 @@ extern "C" void app_main() {
     setupGpio();
     setupLogToChannel( 3 );
     link::initializeLink();
-    auto stdoutDesc = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 1 };
+    auto stdoutDesc = jac::link::ChannelDesc{ xStreamBufferCreate( 2048, 0 ), 1 };
     link::bindSourceChannel( stdoutDesc );
     link::bindSinkChannel( stdoutDesc );
 
-    auto transferReaderChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 2 };
-    auto transferReporterChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 512, 0 ), 2 };
-    link::bindSourceChannel( transferReaderChannel );
-    link::bindSinkChannel( transferReporterChannel );
+    auto uploadReaderChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 2048, 0 ), 2 };
+    auto uploadReporterChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 2048, 0 ), 2 };
+    link::bindSourceChannel( uploadReaderChannel );
+    link::bindSinkChannel( uploadReporterChannel );
 
     storage::initializeFatFs( "/spiflash" );
-    storage::initializeUploader( "/spiflash", &transferReaderChannel, &transferReporterChannel );
+    storage::initializeUploader( "/spiflash", &uploadReaderChannel, &uploadReporterChannel );
     initNvs();
+
+    // sys_delay_ms( 3000 );
+    // xStreamBufferSend( uploadReaderChannel.sb, "PULL num1txt.txt\n", 18, 0 );
     
     while ( true ) {
         sys_delay_ms( 10 );

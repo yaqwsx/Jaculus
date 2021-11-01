@@ -1,7 +1,9 @@
 #pragma once
 
 #include <uploader.hpp>
+#include <jacLog.hpp>
 
+#include <array>
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -41,14 +43,15 @@ public:
             [&]( FileType type, const std::string& path, const std::string& entityName ) {
                 if ( jac::utility::startswith( entityName, "__" ) )
                     return;
-                if ( type == FileType::Directory )
-                    self().yieldString( "D" );
-                else if ( type == FileType::File )
-                    self().yieldString( "F" );
-                else
-                    self().yieldString( "?" );
 
                 std::stringstream ss;
+                if ( type == FileType::Directory )
+                    ss << "D";
+                else if ( type == FileType::File )
+                    ss << "F";
+                else
+                    ss << "?";
+
                 ss << " " << std::string_view( path ).substr( prefixLen )
                           << "/" << entityName << "\n";
                 self().yieldString( ss.str() );
@@ -63,11 +66,11 @@ public:
     void doPull( const std::string& filename ) {
         const std::string path = fsPath( filename );
 
-        const int CHUNK_SIZE = 1023;
+        const int CHUNK_SIZE = 255;
         static_assert( CHUNK_SIZE % 3 == 0 );
         const int ENCODED_SIZE = 4 * ( CHUNK_SIZE + 2 ) / 3 + 1;
-        std::unique_ptr< unsigned char[] > fileBuffer( new unsigned char[ CHUNK_SIZE ] );
-        std::unique_ptr< unsigned char[] > encBuffer( new unsigned char[ ENCODED_SIZE ] );
+        auto fileBuffer = std::make_unique< std::array< uint8_t, CHUNK_SIZE > >();
+        auto encBuffer = std::make_unique< std::array< uint8_t, ENCODED_SIZE > >();
         int fd = open( path.c_str(), O_RDONLY );
         if ( fd < 0 ) {
             self().yieldError( std::strerror( errno ) );
@@ -75,14 +78,17 @@ public:
         }
         int bytesRead;
         while ( ( bytesRead = read( fd, fileBuffer.get(), CHUNK_SIZE ) ) ) {
+            JAC_LOGI( "uploader", "bytesRead: %d ", bytesRead );
             size_t processed;
             int result = mbedtls_base64_encode(
-                encBuffer.get(), ENCODED_SIZE, &processed,
-                fileBuffer.get(), bytesRead );
+                encBuffer.get()->data(), ENCODED_SIZE, &processed,
+                fileBuffer.get()->data(), bytesRead );
+            JAC_LOGI( "uploader", "encoded: %d, %u", result, processed );
             assert( result != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
             self().yieldBuffer( reinterpret_cast< uint8_t * >( encBuffer.get() ), processed );
+            JAC_LOGI( "uploader", "yielded" );
         }
-        self().yieldString( "\n" );
+        self().yieldString( "OK\n" );
 
         close( fd );
     }
@@ -132,7 +138,6 @@ public:
 
     void performExit() {
         self().yieldString( "OK\n" );
-        _finished = true;
     }
 
     void doStats() {
@@ -166,7 +171,6 @@ private:
         return path;
     }
 
-    bool _finished = false;
     int _workingFd = -1;
 };
 
