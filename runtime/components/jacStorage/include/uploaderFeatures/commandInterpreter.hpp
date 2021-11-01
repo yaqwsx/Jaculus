@@ -2,6 +2,7 @@
 
 #include <jacLog.hpp>
 
+#include <array>
 #include <memory>
 #include <string>
 #include <mbedtls/base64.h>
@@ -24,7 +25,7 @@ public:
      * Reads a command from input and interprets it on-the-fly.
      * Always ensures that a whole command was read. **/
     void interpretCommand() {
-        JAC_LOGD( "uploader", "interpreting" );
+        JAC_LOGI( "uploader", "interpreting" );
         discardWhitespace();
         std::string command = readWord( 256 );
         if ( command.length() == 256 ) {
@@ -84,14 +85,14 @@ public:
         discardWhitespace();
         const int BLOCK_SIZE = 63;
         std::string chunk;
-        std::unique_ptr< unsigned char[] > chunkBuffer( new unsigned char[ BLOCK_SIZE ] );
+        auto chunkBuffer = std::make_unique< std::array< uint8_t, BLOCK_SIZE > >();
         do {
             const int base64BlockSize =  4 * BLOCK_SIZE / 3;
             static_assert( base64BlockSize % 4 == 0 );
             chunk = readWord( base64BlockSize );
             size_t chunklength;
             int retcode = mbedtls_base64_decode(
-                chunkBuffer.get(), BLOCK_SIZE, &chunklength,
+                chunkBuffer.get()->data(), BLOCK_SIZE, &chunklength,
                 reinterpret_cast< unsigned char * >( chunk.data() ), chunk.length() );
             assert( retcode != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
             if ( retcode == MBEDTLS_ERR_BASE64_INVALID_CHARACTER ) {
@@ -99,7 +100,7 @@ public:
                 discardRest();
                 return;
             }
-            self().addFileChunk( chunkBuffer.get(), chunklength );
+            self().addFileChunk( chunkBuffer.get()->data(), chunklength );
         } while ( !chunk.empty() );
 
         discardWhitespace();

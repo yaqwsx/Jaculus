@@ -7,6 +7,7 @@
 #include <freertos/event_groups.h>
 
 #include <driver/uart.h>
+#include <sys_arch.h>
 
 #include <iostream>
 #include <utility>
@@ -79,6 +80,7 @@ void sinkMuxRoutine( void * taskParam ) {
             size_t frameBytes = jac::link::encodeFrame( packetBuf, packetBytes, frameBuf, sizeof( frameBuf ) );
             // JAC_LOGI( "link", "Tx %d", int(frameBytes) );
             uart_write_bytes( UART_NUM_0, frameBuf, frameBytes );
+            sys_delay_ms( 1 );
         }
 
         // Flush if that's all we're sending now
