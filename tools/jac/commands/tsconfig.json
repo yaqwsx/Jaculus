@@ -5,7 +5,7 @@
     ],
     "references": [
         {
-            "path": "../src/mux"
+            "path": "../src/mux/"
         }
     ],
     "compilerOptions": {

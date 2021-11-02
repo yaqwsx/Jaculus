@@ -8,7 +8,7 @@ class ChannelDemuxer extends Writable {
         super({ ...opts, objectMode: true })
     }
 
-    public pipeChannel(channel: Writable, channelId: number): Writable {
+    public pipeChannel<T extends Writable>(channel: T, channelId: number): T {
         this.channels.set(channelId, channel)
         return channel
     }
@@ -17,12 +17,11 @@ class ChannelDemuxer extends Writable {
         let channel = this.channels.get(chunk.channelId)
         if (channel === undefined) {
             console.warn("Demux channel %d unassigned", chunk.channelId)
+            callback()
         }
         else if (!channel.write(chunk.data, encoding, callback)) {
-            console.info("Demux channel %d full", chunk.channelId)
+            console.warn("Demux channel %d full", chunk.channelId)
         }
-
-        // callback()
     }
 }
 
