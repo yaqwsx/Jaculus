@@ -1,30 +1,20 @@
-import SerialPort from "serialport"
-import { PassThrough, Readable, Writable } from "stream"
-import { ChannelDemuxer, ChannelIdEnhancer, FrameEncoder, FrameParser, StreamLogger } from "../src/mux/index.js"
+
+import { createJacChannelIO, selectJacPortName } from "./io.js"
 import ReadLine from "readline"
 import { once } from "events"
-
-function setupIO(portName: string, inputChannel: number, outputChannel: number): [Readable, Writable] {
-    const port = new SerialPort(portName, {
-        baudRate: 921600,
-        autoOpen: false,
-        hupcl: false
-    } as any )
-
-    const parser = port.pipe(new FrameParser)
-    const demuxer = parser.pipe(new ChannelDemuxer)
-    const input = demuxer.pipeChannel(new StreamLogger('R'), inputChannel).pipe(new PassThrough)
-
-    const output = new StreamLogger('W')
-    const idEnhancer = new ChannelIdEnhancer(outputChannel)
-    const encoder = new FrameEncoder()
-    output.pipe(idEnhancer).pipe(encoder).pipe(port as any)
-    return [input, output]
-}
+import { ChannelDemuxer, ChannelIdEnhancer, StreamLogger } from "../src/mux/index.js"
+import { PassThrough } from "stream"
 
 async function monitor(args: any) {
-    console.log(args)
-    let [input, output] = setupIO(args.port, args.inputChannel, args.outputChannel)
+    let portName = await selectJacPortName(args.port)
+    let [parser, encoder] = await createJacChannelIO(portName)
+
+    const demuxer = parser.pipe(new ChannelDemuxer)
+    const uploaderInput = demuxer.pipeChannel(new StreamLogger('UPL'), 2)
+    const runtimeLogInput = demuxer.pipeChannel(new StreamLogger('LOG'), 3)
+
+    const uploaderOutput = new ChannelIdEnhancer(2)
+    uploaderOutput.pipe(encoder)
     
     let rl = ReadLine.createInterface({
         input: process.stdin,
@@ -32,10 +22,9 @@ async function monitor(args: any) {
         terminal: false
     });
     rl.on('line', (line) => {
-        output.write(line + "\n")
+        uploaderOutput.write(line + "\n")
     });
     await once(rl, 'close');
 }
-
 
 export { monitor }

@@ -8,6 +8,7 @@
     "type": "module",
     "main": "dist/index.js",
     "dependencies": {
+        "@serialport/parser-readline": "^9.2.4",
         "commander": "^8.2.0"
     },
     "devDependencies": {

@@ -1,12 +1,12 @@
 {
     "extends": "../tsconfig-base.json",
     "include": [
-        "index.ts"
+        "./*"
     ],
     "references": [
         {
-            "path": "./mux"
-        }
+            "path": "./mux/",
+        },
     ],
     "compilerOptions": {
         "target": "es2021",

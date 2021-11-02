@@ -11,7 +11,7 @@ class StreamLogger extends Transform {
     }
 
     _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback): void {        
-        console.log(+Date.now() % 1000, this.prefix, chunk.toString())
+        console.log(+Date.now() % 1000, this.prefix, chunk.toString().trim())
         this.push(chunk)
         callback()
     }

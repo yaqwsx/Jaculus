@@ -17,11 +17,14 @@ program
     .action(() => Uploader.push(program.opts()))
 
 program
+    .command("pull")
+    .action(() => Uploader.pull(program.opts()))
+
+program
     .command("monitor")
     .action(() => Monitor.monitor(program.opts()))
 
 program
-    .command("pull").action(Uploader.pull)
     .command("hello", "Say hello", {executableFile: "dist/commands/hello.js"})
     .command("hi", "Say hi", {executableFile: "dist/commands/hi.js"})
 
