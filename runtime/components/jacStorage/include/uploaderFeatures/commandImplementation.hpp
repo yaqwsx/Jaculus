@@ -1,14 +1,14 @@
 #pragma once
 
 #include <uploader.hpp>
-#include <jacLog.hpp>
 
 #include <array>
 #include <string>
-#include <iostream>
 #include <sstream>
+#include <iomanip>
 #include <memory>
 #include <mbedtls/base64.h>
+#include <rom/crc.h>
 
 // There are missing guards, fixed in
 // https://github.com/espressif/esp-idf/commit/cbf207bfb83156ece449a10908cad0615d66ec52
@@ -20,6 +20,7 @@ extern "C" {
 
 #include <filesystem.hpp>
 #include <jacUtility.hpp>
+#include <jacLog.hpp>
 
 namespace jac::storage {
 
@@ -44,16 +45,22 @@ public:
                 if ( jac::utility::startswith( entityName, "__" ) )
                     return;
 
+                auto relPath = std::string_view( path ).substr( prefixLen );
                 std::stringstream ss;
-                if ( type == FileType::Directory )
-                    ss << "D";
-                else if ( type == FileType::File )
-                    ss << "F";
-                else
-                    ss << "?";
+                if ( type == FileType::Directory ) {
+                    ss << "D " << relPath << "/" << entityName;
+                }
+                else if ( type == FileType::File ) {
+                    auto fileStats = getFileStats( path + entityName );
+                    ss << "F " << relPath << "/" << entityName << " " << fileStats.first << " ";
+                    ss << std::setfill('0') << std::setw(8) << std::hex << fileStats.second;
+                    ss << std::resetiosflags( ss.flags() );
+                }
+                else {
+                    ss << "? " << relPath << "/" << entityName;
+                }
 
-                ss << " " << std::string_view( path ).substr( prefixLen )
-                          << "/" << entityName << "\n";
+                ss << "\n";
                 self().yieldString( ss.str() );
             },
             [&]( const std::string& error ) {
@@ -83,12 +90,10 @@ public:
             int result = mbedtls_base64_encode(
                 encBuffer.get()->data(), ENCODED_SIZE, &processed,
                 fileBuffer.get()->data(), bytesRead );
-            JAC_LOGI( "uploader", "encoded: %d, %u", result, processed );
             assert( result != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
             self().yieldBuffer( reinterpret_cast< uint8_t * >( encBuffer.get() ), processed );
-            JAC_LOGI( "uploader", "yielded" );
         }
-        self().yieldString( "OK\n" );
+        self().yieldString( "\n" );
 
         close( fd );
     }
@@ -158,6 +163,7 @@ public:
         self().yieldString( ss.str() );
     }
 
+
 private:
     static std::string workingFilename() {
         return getStoragePrefix() + "/__tmp.txt"s;
@@ -169,6 +175,28 @@ private:
             path += "/";
         path += filename;
         return path;
+    }
+
+    static std::pair< size_t, uint32_t > getFileStats( const std::string filePath ) {
+        int fd = open( filePath.c_str(), O_RDONLY );
+        if ( fd < 0 ) {
+            JAC_LOGE( "uploader", "Cannot open file %s", filePath.c_str() );
+            return std::make_pair( 0, 0 );
+        }
+        auto buf = std::make_unique< std::array< uint8_t, 256 > >();
+
+        // Implement "CRC-32" from Ethernet.
+        // Its parameters like XorIn=true and XorOut=true require negating the in and out words.
+        // But I think the ESP ROM impl is "pre-negated" and so the negations cancel out.
+        uint32_t crc = 0;
+        size_t size = 0;
+        int chunkBytes;
+        while ( ( chunkBytes = read( fd, buf.get()->data(), buf.get()->size() ) ) > 0 ) {
+            crc = crc32_le( crc, buf.get()->data(), chunkBytes );
+            size += chunkBytes;
+        }
+        close( fd );
+        return std::make_pair( size, crc );
     }
 
     int _workingFd = -1;
