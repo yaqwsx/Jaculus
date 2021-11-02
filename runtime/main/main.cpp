@@ -10,7 +10,6 @@ extern "C" {
 }
 #include <driver/gpio.h>
 #include <driver/uart.h>
-#include <iostream>
 
 #include <duk_console.h>
 #include <jsmachine.hpp>
@@ -25,6 +24,7 @@ extern "C" {
 #include <storage.hpp>
 #include <uploader.hpp>
 #include <link.hpp>
+#include <jacLog.hpp>
 
 #include "wifi.h"
 
@@ -73,6 +73,8 @@ void setupLogToChannel( uint8_t channel ) {
     static jac::link::ChannelDesc runtimeLogChannel;
     static std::mutex runtimeLogMutex;
 
+    ESP_LOGI( "main", "Redirecting log to channel %d", static_cast< int >( channel ) );
+
     runtimeLogChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 1024, 0 ), channel };
     jac::link::bindSinkChannel( runtimeLogChannel );
     esp_log_set_vprintf( []( const char * fmt, va_list args ) -> int {
@@ -120,10 +122,10 @@ extern "C" void app_main() {
     // sys_delay_ms( 3000 );
     // xStreamBufferSend( uploadReaderChannel.sb, "PULL num1txt.txt\n", 18, 0 );
     
-    while ( true ) {
-        sys_delay_ms( 10 );
-        link::notifySink( stdoutDesc );
-    }
+    // while ( true ) {
+    //     sys_delay_ms( 10 );
+    //     link::notifySink( stdoutDesc );
+    // }
 
     #ifdef ENABLE_TEMPORARY_DEBUGGER
         WiFiConnector connector;
@@ -169,11 +171,15 @@ extern "C" void app_main() {
         machine.runEventLoop();
     }
     catch( const std::runtime_error& e ) {
-        std::cerr << "FAILED with runtime error: " << e.what() << "\n";
+        JAC_LOGE( "main", "FAILED with runtime error: %s", e.what() );
     }
     catch( const std::exception& e ) {
-        std::cerr << "FAILED: " << e.what() << "\n";
+        JAC_LOGE( "main", "FAILED: %s", e.what() );
     }
 
-    esp_restart();
+    while ( true ) {
+        sys_delay_ms( 1000 );
+    }
+
+    // esp_restart();
 }
