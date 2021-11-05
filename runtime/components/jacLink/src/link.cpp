@@ -80,7 +80,6 @@ void sinkMuxRoutine( void * taskParam ) {
             size_t frameBytes = jac::link::encodeFrame( packetBuf, packetBytes, frameBuf, sizeof( frameBuf ) );
             // JAC_LOGI( "link", "Tx %d", int(frameBytes) );
             uart_write_bytes( UART_NUM_0, frameBuf, frameBytes );
-            sys_delay_ms( 1 );
         }
 
         // Flush if that's all we're sending now
@@ -164,26 +163,30 @@ void jac::link::initializeLink() {
     xTaskCreate( sourceDemuxRoutine, "srcDemux", 3584, 0, 2, &sourceDemuxTask );
 }
 
-void jac::link::bindSinkChannel( const ChannelDesc &sinkDesc ) {
-    assert( sinkDesc.cid <= maxCid );
-    auto channelDesc = channelDescByCid( sinkDescs, sinkDesc.cid );
+ChannelDesc jac::link::createSinkChannel( uint8_t channelId, size_t bufferSize ) {
+    assert( channelId <= maxCid );
+    auto existingChannel = channelDescByCid( sinkDescs, channelId );
 
-    if ( channelDesc.has_value() ) {
-        channelDesc.value()->sb = sinkDesc.sb;
-    } else {
-        sinkDescs.push_back( sinkDesc );
+    if ( existingChannel.has_value() ) {
+        JAC_LOGE( "link", "Sink channel %d already exists", channelId );
     }
+    
+    auto channel = ChannelDesc { xStreamBufferCreate( bufferSize, 0 ), channelId } ;
+    sinkDescs.push_back( channel );
+    return channel;
 }
 
-void jac::link::bindSourceChannel( const ChannelDesc &sourceDesc ) {
-    assert( sourceDesc.cid <= maxCid );
-    auto channelDesc = channelDescByCid( sourceDescs, sourceDesc.cid );
+ChannelDesc jac::link::createSourceChannel( uint8_t channelId, size_t bufferSize ) {
+    assert( channelId <= maxCid );
+    auto existingChannel = channelDescByCid( sourceDescs, channelId );
 
-    if ( channelDesc.has_value() ) {
-        channelDesc.value()->sb = sourceDesc.sb;
-    } else {
-        sourceDescs.push_back( sourceDesc );
+    if ( existingChannel.has_value() ) {
+        JAC_LOGE( "link", "Source channel %d already exists", channelId );
     }
+    
+    auto channel = ChannelDesc { xStreamBufferCreate( bufferSize, 0 ), channelId } ;
+    sourceDescs.push_back( channel );
+    return channel;
 }
 
 void jac::link::discardSourceContent( const ChannelDesc &sourceDesc ) {

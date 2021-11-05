@@ -75,11 +75,10 @@ void setupLogToChannel( uint8_t channel ) {
 
     ESP_LOGI( "main", "Redirecting log to channel %d", static_cast< int >( channel ) );
 
-    runtimeLogChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 1024, 0 ), channel };
-    jac::link::bindSinkChannel( runtimeLogChannel );
+    runtimeLogChannel = jac::link::createSinkChannel( channel );
     esp_log_set_vprintf( []( const char * fmt, va_list args ) -> int {
         static std::array<uint8_t, 128> buffer;
-        std::unique_lock lock{runtimeLogMutex};
+        std::unique_lock lock{ runtimeLogMutex };
         int bytes = vsnprintf( reinterpret_cast< char *>( buffer.data() ), buffer.size(), fmt, args );
         if (bytes > 0) {
             jac::link::writeSink( runtimeLogChannel, buffer.data(), bytes, 100 );
@@ -105,15 +104,13 @@ extern "C" void app_main() {
     setupUartDriver(); // Without UART drive stdio is non-blocking
     setupGpio();
     setupLogToChannel( 3 );
+    
     link::initializeLink();
-    auto stdoutDesc = jac::link::ChannelDesc{ xStreamBufferCreate( 2048, 0 ), 1 };
-    link::bindSourceChannel( stdoutDesc );
-    link::bindSinkChannel( stdoutDesc );
+    auto stdinChannel = link::createSourceChannel( 1 );
+    auto stdoutChannel = link::createSinkChannel( 1 );
 
-    auto uploadReaderChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 2048, 0 ), 2 };
-    auto uploadReporterChannel = jac::link::ChannelDesc{ xStreamBufferCreate( 2048, 0 ), 2 };
-    link::bindSourceChannel( uploadReaderChannel );
-    link::bindSinkChannel( uploadReporterChannel );
+    auto uploadReaderChannel = link::createSourceChannel( 2 );
+    auto uploadReporterChannel = link::createSinkChannel( 2 );
 
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash", &uploadReaderChannel, &uploadReporterChannel );
@@ -122,11 +119,6 @@ extern "C" void app_main() {
     // sys_delay_ms( 3000 );
     // xStreamBufferSend( uploadReaderChannel.sb, "PULL num1txt.txt\n", 18, 0 );
     
-    // while ( true ) {
-    //     sys_delay_ms( 10 );
-    //     link::notifySink( stdoutDesc );
-    // }
-
     #ifdef ENABLE_TEMPORARY_DEBUGGER
         WiFiConnector connector;
         if ( !connector.sync().connect( SSID, password ) ) {
