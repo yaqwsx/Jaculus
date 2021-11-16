@@ -159,6 +159,7 @@ void listDirectory( const std::string& path, Yield yield, Error yieldError ) {
 bool ensurePath( const std::string& path );
 std::string concatPath( std::string a, const std::string& b );
 std::string readFile( const std::string& path );
+void readFile( const std::string& path, std::string& output );
 bool fileExists( const std::string& path );
 
 } // namespace jac::fs
