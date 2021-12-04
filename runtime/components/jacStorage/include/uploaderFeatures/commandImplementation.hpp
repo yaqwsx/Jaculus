@@ -76,8 +76,8 @@ public:
         const int CHUNK_SIZE = 255;
         static_assert( CHUNK_SIZE % 3 == 0 );
         const int ENCODED_SIZE = 4 * ( CHUNK_SIZE + 2 ) / 3 + 1;
-        auto fileBuffer = std::make_unique< std::array< uint8_t, CHUNK_SIZE > >();
-        auto encBuffer = std::make_unique< std::array< uint8_t, ENCODED_SIZE > >();
+        auto fileBuffer = std::make_unique< uint8_t[] >( CHUNK_SIZE );
+        auto encBuffer = std::make_unique< uint8_t[] >( ENCODED_SIZE );
         int fd = open( path.c_str(), O_RDONLY );
         if ( fd < 0 ) {
             self().yieldError( std::strerror( errno ) );
@@ -88,8 +88,8 @@ public:
             JAC_LOGI( "uploader", "bytesRead: %d ", bytesRead );
             size_t processed;
             int result = mbedtls_base64_encode(
-                encBuffer.get()->data(), ENCODED_SIZE, &processed,
-                fileBuffer.get()->data(), bytesRead );
+                encBuffer.get(), ENCODED_SIZE, &processed,
+                fileBuffer.get(), bytesRead );
             assert( result != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
             self().yieldBuffer( reinterpret_cast< uint8_t * >( encBuffer.get() ), processed );
         }
@@ -183,7 +183,8 @@ private:
             JAC_LOGE( "uploader", "Cannot open file %s", filePath.c_str() );
             return std::make_pair( 0, 0 );
         }
-        auto buf = std::make_unique< std::array< uint8_t, 256 > >();
+        static const size_t bufSize = 256;
+        auto buf = std::make_unique< uint8_t[] >( bufSize );
 
         // Implement "CRC-32" from Ethernet.
         // Its parameters like XorIn=true and XorOut=true require negating the in and out words.
@@ -191,8 +192,8 @@ private:
         uint32_t crc = 0;
         size_t size = 0;
         int chunkBytes;
-        while ( ( chunkBytes = read( fd, buf.get()->data(), buf.get()->size() ) ) > 0 ) {
-            crc = crc32_le( crc, buf.get()->data(), chunkBytes );
+        while ( ( chunkBytes = read( fd, buf.get(), bufSize ) ) > 0 ) {
+            crc = crc32_le( crc, buf.get(), chunkBytes );
             size += chunkBytes;
         }
         close( fd );

@@ -85,14 +85,14 @@ public:
         discardWhitespace();
         const int BLOCK_SIZE = 63;
         std::string chunk;
-        auto chunkBuffer = std::make_unique< std::array< uint8_t, BLOCK_SIZE > >();
+        auto chunkBuffer = std::make_unique< uint8_t[] >( BLOCK_SIZE );
         do {
             const int base64BlockSize =  4 * BLOCK_SIZE / 3;
             static_assert( base64BlockSize % 4 == 0 );
             chunk = readWord( base64BlockSize );
             size_t chunklength;
             int retcode = mbedtls_base64_decode(
-                chunkBuffer.get()->data(), BLOCK_SIZE, &chunklength,
+                chunkBuffer.get(), BLOCK_SIZE, &chunklength,
                 reinterpret_cast< unsigned char * >( chunk.data() ), chunk.length() );
             assert( retcode != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
             if ( retcode == MBEDTLS_ERR_BASE64_INVALID_CHARACTER ) {
@@ -100,7 +100,7 @@ public:
                 discardRest();
                 return;
             }
-            self().addFileChunk( chunkBuffer.get()->data(), chunklength );
+            self().addFileChunk( chunkBuffer.get(), chunklength );
         } while ( !chunk.empty() );
 
         discardWhitespace();
