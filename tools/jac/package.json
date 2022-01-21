@@ -11,6 +11,7 @@
         "commander": "^8.2.0"
     },
     "devDependencies": {
+        "typescript": "^4.5.5",
         "@tsconfig/node14": "^1.0.1",
         "@types/crc": "^3.4.0",
         "@types/node": "^16.10.3",
