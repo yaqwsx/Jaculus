@@ -3,6 +3,11 @@
     "include": [
         "./*"
     ],
+    "references": [
+        {
+            "path": "../util"
+        }
+    ],
     "compilerOptions": {
         "target": "es2021",
         "module": "es2020",
@@ -10,5 +15,6 @@
         "sourceMap": true,
         "resolveJsonModule": true,
         "esModuleInterop": true,
+        "baseUrl": ".."
     }
 }

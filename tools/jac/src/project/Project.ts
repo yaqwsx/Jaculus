@@ -1,8 +1,7 @@
 import { parse } from "yaml"
 import { readFileSync, existsSync, mkdirSync, openSync } from "fs"
 import { resolve } from "path"
-
-// FIXME: Do we use sync or async fs functions?
+import { RethrownError } from "util/index.js"
 
 class Project {
     readonly path: string
@@ -31,7 +30,7 @@ class Project {
             mkdirSync(this.auxiliaryFolder)
         } catch (error) {
             if ((error as any).code !== "EEXIST") // Silent fail for "exists" errors
-                console.error(error)
+                throw new RethrownError(error as Error)
         }
         return this.auxiliaryFolder
     }
@@ -41,7 +40,7 @@ class Project {
             mkdirSync(this.buildFolder, { recursive: true })
         } catch (error) {
             if ((error as any).code !== "EEXIST") // Silent fail for "exists" errors
-                console.error(error)
+                throw new RethrownError(error as Error)
         }
         return this.buildFolder
     }
@@ -57,17 +56,11 @@ class Project {
             mkdirSync(path, { recursive: true })
         } catch (error) {
             if ((error as any).code !== "EEXIST") // Silent fail for "exists" errors
-                console.error(error)
+                throw new RethrownError(error as Error)
         }
 
-        try {
-            openSync(resolve(path, "jac.yml"), "wx") // fails if jac.yml already exists // FIXME: Do we want this?
-        } catch (error) {
-            if ((error as any).code === "EEXIST") // FIXME: Do we want simplified error message?
-                console.error("Project already exists!")
-            else
-                console.error(error)
-        }
+
+        openSync(resolve(path, "jac.yml"), "wx") // fails if jac.yml already exists // FIXME: Do we want this?
 
         return new Project(path)
     }
