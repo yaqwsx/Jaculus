@@ -1,18 +1,13 @@
 {
-    "extends": "../tsconfig-base.json",
+    "extends": "../../tsconfig-base.json",
     "include": [
-        "index.ts"
+        "./*"
     ],
     "references": [
         {
-            "path": "./project"
-        },
-        {
-            "path": "./util"
+            "path": "../util"
         }
     ],
-    "paths": {
-    },
     "compilerOptions": {
         "target": "es2021",
         "module": "es2020",
@@ -20,6 +15,6 @@
         "sourceMap": true,
         "resolveJsonModule": true,
         "esModuleInterop": true,
-        "baseUrl": "."
+        "baseUrl": ".."
     }
 }
