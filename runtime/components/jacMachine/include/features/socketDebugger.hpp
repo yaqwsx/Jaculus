@@ -1,5 +1,7 @@
 #pragma once
 
+#include <jacLog.hpp>
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -55,7 +57,7 @@ private:
                     dukDeatachCb,      // debugger detached callback
                     &self() );         // debug udata
         _debuggingEnabled = true;
-        std::cout << "Debugger attached!\n";
+        JAC_LOGI( "debugger", "attached!" );
     }
 
     void _initializeServerSocket() {

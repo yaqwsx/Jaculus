@@ -1,5 +1,7 @@
 #pragma once
 
+#include <jacLog.hpp>
+
 #include <duktape.h>
 #include <string>
 #include <string_view>
@@ -8,13 +10,13 @@ using DukCFunction = duk_ret_t (*)( duk_context * );
 
 inline void dukDumpStack( duk_context* ctx, const std::string& message = {} ) {
     duk_push_context_dump( ctx );
-    std::cout << message << ": " << duk_safe_to_string( ctx, -1 ) << "\n";
+    JAC_LOGE( "duk", "%s: %s", message.c_str(), duk_safe_to_string( ctx, -1 ) );
     duk_pop( ctx );
 }
 
 inline void dukDumpLast( duk_context* ctx, const std::string& message = {} ) {
     duk_dup( ctx, -1 );
-    std::cout << message << ": " << duk_safe_to_stacktrace( ctx, -1 ) << "\n";
+    JAC_LOGE( "duk", "%s: %s", message.c_str(), duk_safe_to_stacktrace( ctx, -1 ) );
     duk_pop( ctx );
 }
 

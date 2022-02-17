@@ -1,5 +1,8 @@
 #pragma once
 
+#include <jacLog.hpp>
+
+#include <array>
 #include <memory>
 #include <string>
 #include <mbedtls/base64.h>
@@ -22,6 +25,7 @@ public:
      * Reads a command from input and interprets it on-the-fly.
      * Always ensures that a whole command was read. **/
     void interpretCommand() {
+        JAC_LOGI( "uploader", "interpreting" );
         discardWhitespace();
         std::string command = readWord( 256 );
         if ( command.length() == 256 ) {
@@ -81,7 +85,7 @@ public:
         discardWhitespace();
         const int BLOCK_SIZE = 63;
         std::string chunk;
-        std::unique_ptr< unsigned char[] > chunkBuffer( new unsigned char[ BLOCK_SIZE ] );
+        auto chunkBuffer = std::make_unique< uint8_t[] >( BLOCK_SIZE );
         do {
             const int base64BlockSize =  4 * BLOCK_SIZE / 3;
             static_assert( base64BlockSize % 4 == 0 );
