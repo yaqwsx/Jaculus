@@ -1,1 +1,2 @@
-import "./project/index.js"
+export * from "project"
+export * from "util"
