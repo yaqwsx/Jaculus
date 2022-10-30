@@ -5,8 +5,8 @@ import { Buffer } from "buffer"
 
 import type { TransformOptions, TransformCallback } from "stream"
 
-const packetDataMaxLen = 251
-const frameMaxLen = 257
+const packetDataMaxLen = 250
+const frameMaxLen = packetDataMaxLen + 7
 class FrameEncoder extends Transform {
     constructor(opts?: TransformOptions) {
         super({ ...opts, writableObjectMode: true })
@@ -17,11 +17,13 @@ class FrameEncoder extends Transform {
         // console.log('Wchunk', chunk.data.length)
         while (chunkInd < chunk.data.length) {
             let packetDataLen = Math.min(chunk.data.length - chunkInd, packetDataMaxLen)
-            let packet = Buffer.alloc(1 + packetDataLen + 2)
+            let packet = Buffer.alloc(2 + packetDataLen + 2)
 
+            // Report fully available RxWindow as we have infinite memory
+            packet[0] = 0x0F
             // Prepend Channel ID to packet
-            packet[0] = chunk.channelId
-            chunk.data.copy(packet, 1, chunkInd, chunkInd + packetDataLen)
+            packet[1] = chunk.channelId
+            chunk.data.copy(packet, 2, chunkInd, chunkInd + packetDataLen)
 
             // Append CRC to packet
             let crcValue = crc.crc16xmodem(packet.slice(0, packet.length - 2))

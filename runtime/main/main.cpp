@@ -41,6 +41,9 @@ extern "C" {
 void gpioIntr(void *arg) {
 }
 
+jac::link::ChannelDesc loopbackInChannel;
+jac::link::ChannelDesc loopbackOutChannel;
+
 void setupGpio() {
     gpio_install_isr_service( 0 );
     gpio_config_t io_conf;
@@ -59,11 +62,14 @@ void setupUartDriver() {
         .data_bits = UART_DATA_8_BITS,
         .parity    = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .flow_ctrl = UART_HW_FLOWCTRL_RTS,
         .rx_flow_ctrl_thresh = 63,
         .source_clk = UART_SCLK_APB,
     };
     uart_driver_install( UART_NUM_0, 4096, 0, 0, NULL, ESP_INTR_FLAG_IRAM );
+    // rx_flow_ctrl_thresh may only be set with UART_HW_FLOWCTRL_RTS lol
+    uart_param_config( UART_NUM_0, &uart_config );
+    uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     uart_param_config( UART_NUM_0, &uart_config );
 
     esp_vfs_dev_uart_use_driver( 0 );
@@ -111,6 +117,34 @@ extern "C" void app_main() {
 
     auto uploadReaderChannel = link::createSourceChannel( 2 );
     auto uploadReporterChannel = link::createSinkChannel( 2 );
+
+    loopbackInChannel = link::createSourceChannel( 3 );
+    loopbackOutChannel = link::createSinkChannel( 3 );
+
+    TaskHandle_t kurva;
+
+    xTaskCreate([](auto arg) {
+        while ( true ) {
+            uint8_t kunda[ 32 ];
+            size_t len = link::readSourceAtLeast( loopbackInChannel, kunda, sizeof( kunda ) , 1, portMAX_DELAY );
+            link::writeSink( loopbackOutChannel, kunda, len, portMAX_DELAY );
+        }
+    }, "kurva", 4000, nullptr, 1, &kurva );
+
+    while ( true ) {
+        auto ahoj = 
+        "11111111"
+        "22222222"
+        "33333333"
+        "44444444"
+        "55555555"
+        "66666666"
+        "77777777"
+        "88888888";
+
+        link::writeSink( stdoutChannel, (const uint8_t*)ahoj, strlen ( ahoj ), portMAX_DELAY );
+        sys_delay_ms( 500 );
+    }
 
     storage::initializeFatFs( "/spiflash" );
     storage::initializeUploader( "/spiflash", &uploadReaderChannel, &uploadReporterChannel );

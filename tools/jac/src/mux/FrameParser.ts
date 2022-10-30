@@ -30,12 +30,20 @@ class FrameParser extends Transform {
 
     processFrame() {
         let cobsDec = cobsDecode(this._buffer)
-        if (cobsDec.length >= 3) {
+        if (cobsDec.length >= 4) {
             let crcRem = crc.crc16xmodem(cobsDec)
             // CRC of data including the CRC yields a 0 remainder:
             if (crcRem == 0) {
-                let channelId = cobsDec[0]
-                this.push({ data: cobsDec.slice(1, cobsDec.length - 2), channelId: channelId })
+                let serviceByte = cobsDec[0]
+                
+                let rxWindow = serviceByte & 0x0F
+                this.emit("partner-rx-window", rxWindow)
+                console.log("partner:", rxWindow)
+                
+                let channelId = cobsDec[1] 
+                this.push({ data: cobsDec.slice(2, cobsDec.length - 2), channelId: channelId })
+            } else {
+                console.log("Bad CRC")
             }
         }
     }

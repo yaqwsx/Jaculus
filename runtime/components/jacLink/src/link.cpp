@@ -5,16 +5,17 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
 #include <freertos/event_groups.h>
+#include <freertos/queue.h>
 
 #include <driver/uart.h>
 #include <sys_arch.h>
 
-#include <iostream>
 #include <utility>
 #include <vector>
 #include <algorithm>
 #include <optional>
 #include <array>
+#include <memory>
 #include <sstream>
 
 namespace {
@@ -29,7 +30,10 @@ TaskHandle_t sourceDemuxTask;
 
 EventGroupHandle_t sinkEvents;
 const uint32_t eventMask = 0x00ffffff;
-const uint8_t maxCid = 23;
+const uint32_t sinkChannelNotifyMask = 0x007fffff;
+const uint32_t rxWindowUpdateEvent = 0x00800000;
+const uint8_t maxCid = 22;
+
 
 std::optional<ChannelDesc*> channelDescByCid( std::vector<ChannelDesc> &collection, uint8_t cid ) {
     auto it = std::find_if( collection.begin(), collection.end(),
@@ -57,34 +61,65 @@ uint32_t decodeLowestBitPosition( uint32_t bits ) {
     return __builtin_ctz( bits );
 }
 
+uint8_t getRxWindow() {
+    static const size_t rxBufferCapacity = 4096;
+    size_t rxBufferBytes; 
+    uart_get_buffered_data_len( UART_NUM_0, &rxBufferBytes );
+
+    size_t rxBufferFree = rxBufferCapacity - rxBufferBytes;
+    // 0 -> buffer full, 15 -> buffer empty
+    return rxBufferFree / (rxBufferCapacity / 15);
+}
+
 void sinkMuxRoutine( void * taskParam ) {
-    static uint8_t packetBuf[jac::link::packetMaxSize];
-    static uint8_t frameBuf[jac::link::frameMaxSize];
+    auto frameBuf = std::make_unique< uint8_t[] >( frameMaxSize );
+    auto packetBuf = std::make_unique< uint8_t[] >( packetMaxSize );
+
+    auto transmitPacket = [&]( uint8_t *packet,  size_t packetLen ) {
+        size_t packetBytes = jac::link::appendCrc( packet, packetLen, packetMaxSize );
+
+        size_t frameBytes = jac::link::encodeFrame(
+            packet, packetBytes, frameBuf.get(), frameMaxSize );
+
+        uart_write_bytes( UART_NUM_0, frameBuf.get(), frameBytes );
+    };
 
     while ( true ) {
         uint32_t evBits = xEventGroupWaitBits( sinkEvents, eventMask, pdFALSE, pdFALSE, portMAX_DELAY );
         assert( evBits );
-        uint32_t evCid = decodeLowestBitPosition( evBits );
-        uint32_t evBit = 1 << evCid;
+        uint8_t serviceByte = getRxWindow();
 
-        auto channelDesc = channelDescByCid( sinkDescs, evCid );
-        xEventGroupClearBits( sinkEvents, evBit );
-        if ( !channelDesc.has_value() ) {
-            JAC_LOGW( "link", "Sink channel %d unassigned", evCid );
-            continue;
+        if ( evBits & sinkChannelNotifyMask ) {
+            uint32_t evCid = decodeLowestBitPosition( evBits );
+            uint32_t evBit = encodeBitPosition( evCid );
+
+            auto channelDesc = channelDescByCid( sinkDescs, evCid );
+            xEventGroupClearBits( sinkEvents, evBit );
+
+            if ( !channelDesc.has_value() ) {
+                JAC_LOGW( "link", "Sink channel %d unassigned", evCid );
+            } else if ( size_t packetDataBytes = xStreamBufferReceive(
+                    channelDesc.value()->sb,
+                    packetBuf.get() + packetHeaderSize,
+                    packetDataMaxSize,
+                    0 ) ) {
+
+                packetBuf.get()[0] = serviceByte;
+                packetBuf.get()[1] = channelDesc.value()->cid;
+
+                // RxWindow will be piggy backed onto data frame
+                xEventGroupClearBits( sinkEvents, rxWindowUpdateEvent );
+                transmitPacket( packetBuf.get(), packetHeaderSize + packetDataBytes );
+                continue;
+            }
         }
 
-        while ( size_t dataBytes = xStreamBufferReceive( channelDesc.value()->sb, packetBuf + 1, sizeof( packetBuf ) - 3, 0) ) {
-            packetBuf[0] = channelDesc.value()->cid;
-            size_t packetBytes = jac::link::appendCrc( packetBuf, dataBytes + 1, sizeof( packetBuf ) );
-            size_t frameBytes = jac::link::encodeFrame( packetBuf, packetBytes, frameBuf, sizeof( frameBuf ) );
-            // JAC_LOGI( "link", "Tx %d", int(frameBytes) );
-            uart_write_bytes( UART_NUM_0, frameBuf, frameBytes );
+        if ( evBits & rxWindowUpdateEvent ) {
+            xEventGroupClearBits( sinkEvents, rxWindowUpdateEvent );
+            packetBuf.get()[0] = serviceByte;
+            packetBuf.get()[1] = 0;
+            transmitPacket( packetBuf.get(), packetHeaderSize );
         }
-
-        // Flush if that's all we're sending now
-        // if ( xEventGroupGetBits( sinkEvents ) == 0 ) {
-        // }
     }
 }
 
@@ -94,20 +129,23 @@ void processSourceFrame( uint8_t *data, size_t len ) {
     size_t packetBytes = jac::link::decodeFrame( data, len, packetBuf.data(), packetBuf.size() );
     // JAC_LOGI( "link", "DecE %d", int(packetBytes) );
 
-    if (packetBytes > 0) {
-        uint8_t cid = packetBuf[0];
+    if (packetBytes >= packetHeaderSize) {
+        uint8_t serviceByte = packetBuf[0];
+        uint8_t cid = packetBuf[1];
+        
         auto channelDesc = channelDescByCid( sourceDescs, cid );
         if ( !channelDesc.has_value() ) {
             JAC_LOGW( "link", "Src channel %d unassigned", cid );
             return;
         }
         JAC_LOGI( "link", "RxValid %d: %d", int(cid), int(packetBytes) );
-        size_t packetDatabytes = packetBytes - 1;
+        size_t packetDatabytes = packetBytes - packetHeaderSize;
         if ( xStreamBufferSpacesAvailable( channelDesc.value()->sb ) < packetDatabytes ) {
             JAC_LOGW( "link", "Src channel %d buffer full", cid );
         }
-        xStreamBufferSend( channelDesc.value()->sb, packetBuf.data() + 1, packetDatabytes, portMAX_DELAY );
-        // JAC_LOGI( "link", "RxForwarded" );
+        xStreamBufferSend(
+            channelDesc.value()->sb, packetBuf.data() + packetHeaderSize, packetDatabytes, portMAX_DELAY );
+        JAC_LOGI( "link", "RxForw %d", xStreamBufferSpacesAvailable( channelDesc.value()->sb ) );
     }
 }
 
@@ -145,12 +183,16 @@ void processSourceChunk( uint8_t *data, size_t len ) {
 }
 
 void sourceDemuxRoutine( void * taskParam ) {
-    static std::array<uint8_t, 300> inputBuf;
+    static const size_t inputBufLen = 300;
+    auto inputBuf = std::make_unique< uint8_t[] >( inputBufLen );
     while (true) {
-        int bytesRead;
-        bytesRead = uart_read_bytes( UART_NUM_0, inputBuf.data(), inputBuf.size(), 1 / portTICK_RATE_MS );
+        int bytesRead = uart_read_bytes( UART_NUM_0, inputBuf.get(), inputBufLen, 1 / portTICK_RATE_MS );
         if (bytesRead > 0) {
-            processSourceChunk( inputBuf.data(), bytesRead );
+            processSourceChunk( inputBuf.get(), bytesRead );
+            xEventGroupSetBits( sinkEvents, rxWindowUpdateEvent );
+            size_t buffered = 0;
+            uart_get_buffered_data_len( UART_NUM_0, &buffered );
+            JAC_LOGI( "link", "RxBuf %u", (4096 - buffered) );
         }
     }
 }
@@ -199,9 +241,10 @@ void jac::link::writeSink( const ChannelDesc &sinkDesc, const uint8_t *data, siz
     // Make sure to notifySink even if we exceed the buffer
     while (len > 0) {
         size_t avail = xStreamBufferSpacesAvailable( sinkDesc.sb );
-        size_t chunkBytes = std::min( len, avail );
-        xStreamBufferSend( sinkDesc.sb, data, chunkBytes, timeout );
-        notifySink( sinkDesc );
+        size_t chunkBytes = avail > 0 ? std::min( len, avail ) : len;
+        if (xStreamBufferSend( sinkDesc.sb, data, chunkBytes, timeout ) > 0) {
+            notifySink( sinkDesc );
+        }
         len -= chunkBytes;
     }
 }
@@ -214,7 +257,6 @@ size_t jac::link::readSource( const ChannelDesc &sourceDesc, uint8_t *data, size
 size_t jac::link::readSourceAtLeast( const ChannelDesc &sourceDesc, uint8_t *data, size_t len, size_t atLeast, TickType_t timeout ) {
     assert( atLeast < len );
     size_t bytes = readSource( sourceDesc, data, atLeast, timeout );
-    // JAC_LOGI( "link", "%d: ReadA %d", int(sourceDesc.cid), bytes );
     data += bytes;
     len -= bytes;
     // Read more bytes that may be in buffer

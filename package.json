@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "regenerator": "^0.14.7",
+    "serialport": "^9.2.1"
+  }
+}

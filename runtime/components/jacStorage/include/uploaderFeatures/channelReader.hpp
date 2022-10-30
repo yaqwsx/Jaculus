@@ -10,7 +10,7 @@ namespace jac::storage {
 template < typename Self >
 class ChannelReader {
     const jac::link::ChannelDesc *ch;
-    std::array<uint8_t, 32> buf;
+    std::array<uint8_t, 128> buf;
     uint8_t *bufIter = buf.begin();
     uint8_t *bufEnd = buf.begin();
 

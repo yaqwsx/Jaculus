@@ -10,6 +10,7 @@ async function monitor(args: any) {
     let [parser, encoder] = await createJacChannelIO(portName)
 
     const demuxer = parser.pipe(new ChannelDemuxer)
+    const stdoutChannel = demuxer.pipeChannel(new StreamLogger('OUT'), 1)
     const uploaderInput = demuxer.pipeChannel(new StreamLogger('UPL'), 2)
     const runtimeLogInput = demuxer.pipeChannel(new StreamLogger('LOG'), 3)
 
