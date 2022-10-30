@@ -143,6 +143,9 @@ private:
     std::string resolvePath( const std::string& id ) {
         assert( !id.empty() );
         auto path = fs::concatPath( self()._cfg.basePath, id );
+        if( path.size() >= 3 && path.compare( path.size()-3, 3, ".js" ) != 0 ) {
+            path += ".js";
+        }
         return path;
     }
 
