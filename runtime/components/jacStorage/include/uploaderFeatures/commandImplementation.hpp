@@ -2,10 +2,13 @@
 
 #include <uploader.hpp>
 
+#include <array>
 #include <string>
-#include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <memory>
 #include <mbedtls/base64.h>
+#include <rom/crc.h>
 
 // There are missing guards, fixed in
 // https://github.com/espressif/esp-idf/commit/cbf207bfb83156ece449a10908cad0615d66ec52
@@ -17,7 +20,7 @@ extern "C" {
 
 #include <filesystem.hpp>
 #include <jacUtility.hpp>
-
+#include <jacLog.hpp>
 
 namespace jac::storage {
 
@@ -34,10 +37,6 @@ public:
         return *static_cast< const Self* >( this );
     }
 
-    bool finished() const {
-        return _finished;
-    }
-
     void doList( const std::string& prefix ) {
         using namespace jac::fs;
         const int prefixLen = strlen( getStoragePrefix() ) + 1;
@@ -45,30 +44,40 @@ public:
             [&]( FileType type, const std::string& path, const std::string& entityName ) {
                 if ( jac::utility::startswith( entityName, "__" ) )
                     return;
-                if ( type == FileType::Directory )
-                    std::cout << "D";
-                else if ( type == FileType::File )
-                    std::cout << "F";
-                else
-                    std::cout << "?";
 
-                std::cout << " " << std::string_view( path ).substr( prefixLen )
-                          << "/" << entityName << "\n";
+                auto relPath = std::string_view( path ).substr( prefixLen );
+                std::stringstream ss;
+                if ( type == FileType::Directory ) {
+                    ss << "D " << relPath << "/" << entityName;
+                }
+                else if ( type == FileType::File ) {
+                    auto fileStats = getFileStats( path + entityName );
+                    ss << "F " << relPath << "/" << entityName << " " << fileStats.first << " ";
+                    ss << std::setfill('0') << std::setw(8) << std::hex << fileStats.second;
+                    ss << std::resetiosflags( ss.flags() );
+                }
+                else {
+                    ss << "? " << relPath << "/" << entityName;
+                }
+
+                ss << "\n";
+                self().yieldString( ss.str() );
             },
             [&]( const std::string& error ) {
                 self().yieldError( error );
             });
-        std::cout << "\n";
+            self().yieldString( "\n" );
+
     }
 
     void doPull( const std::string& filename ) {
         const std::string path = fsPath( filename );
 
-        const int CHUNK_SIZE = 1023;
+        const int CHUNK_SIZE = 255;
         static_assert( CHUNK_SIZE % 3 == 0 );
         const int ENCODED_SIZE = 4 * ( CHUNK_SIZE + 2 ) / 3 + 1;
-        std::unique_ptr< unsigned char[] > fileBuffer( new unsigned char[ CHUNK_SIZE ] );
-        std::unique_ptr< unsigned char[] > encBuffer( new unsigned char[ ENCODED_SIZE ] );
+        auto fileBuffer = std::make_unique< uint8_t[] >( CHUNK_SIZE );
+        auto encBuffer = std::make_unique< uint8_t[] >( ENCODED_SIZE );
         int fd = open( path.c_str(), O_RDONLY );
         if ( fd < 0 ) {
             self().yieldError( std::strerror( errno ) );
@@ -76,14 +85,15 @@ public:
         }
         int bytesRead;
         while ( ( bytesRead = read( fd, fileBuffer.get(), CHUNK_SIZE ) ) ) {
-            size_t proccessed;
+            JAC_LOGI( "uploader", "bytesRead: %d ", bytesRead );
+            size_t processed;
             int result = mbedtls_base64_encode(
-                encBuffer.get(), ENCODED_SIZE, &proccessed,
+                encBuffer.get(), ENCODED_SIZE, &processed,
                 fileBuffer.get(), bytesRead );
             assert( result != MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL );
-            std::cout.write( reinterpret_cast< char * >( encBuffer.get() ), proccessed );
+            self().yieldBuffer( reinterpret_cast< uint8_t * >( encBuffer.get() ), processed );
         }
-        std::cout << "\n";
+        self().yieldString( "\n" );
 
         close( fd );
     }
@@ -92,7 +102,7 @@ public:
         const auto filePath = fsPath( filename );
         if ( remove( filePath.c_str() ) < 0 )
             self().yieldError( std::strerror( errno ) );
-        std::cout << "OK\n";
+        self().yieldString( "OK\n" );
     }
 
     void startFilePush() {
@@ -128,12 +138,11 @@ public:
         int res = rename( workingFilename().c_str(), path.c_str() );
         if ( res < 0 )
             self().yieldError( "Cannot finalize push: "s + std::strerror( errno ));
-        std::cout << "OK\n";
+        self().yieldString( "OK\n" );
     }
 
     void performExit() {
-        std::cout << "OK\n";
-        _finished = true;
+        self().yieldString( "OK\n" );
     }
 
     void doStats() {
@@ -148,9 +157,12 @@ public:
         }
         int totalSectors = (fs->n_fatent - 2) * fs->csize;
         int freeSectors = freeClusters * fs->csize;
-        std::cout << freeSectors * CONFIG_WL_SECTOR_SIZE << " "
-                  << totalSectors * CONFIG_WL_SECTOR_SIZE << "\n";
+        std::stringstream ss;
+        ss << freeSectors * CONFIG_WL_SECTOR_SIZE << " "
+            << totalSectors * CONFIG_WL_SECTOR_SIZE << "\n";
+        self().yieldString( ss.str() );
     }
+
 
 private:
     static std::string workingFilename() {
@@ -165,7 +177,29 @@ private:
         return path;
     }
 
-    bool _finished = false;
+    static std::pair< size_t, uint32_t > getFileStats( const std::string filePath ) {
+        int fd = open( filePath.c_str(), O_RDONLY );
+        if ( fd < 0 ) {
+            JAC_LOGE( "uploader", "Cannot open file %s", filePath.c_str() );
+            return std::make_pair( 0, 0 );
+        }
+        static const size_t bufSize = 256;
+        auto buf = std::make_unique< uint8_t[] >( bufSize );
+
+        // Implement "CRC-32" from Ethernet.
+        // Its parameters like XorIn=true and XorOut=true require negating the in and out words.
+        // But I think the ESP ROM impl is "pre-negated" and so the negations cancel out.
+        uint32_t crc = 0;
+        size_t size = 0;
+        int chunkBytes;
+        while ( ( chunkBytes = read( fd, buf.get(), bufSize ) ) > 0 ) {
+            crc = crc32_le( crc, buf.get(), chunkBytes );
+            size += chunkBytes;
+        }
+        close( fd );
+        return std::make_pair( size, crc );
+    }
+
     int _workingFd = -1;
 };
 

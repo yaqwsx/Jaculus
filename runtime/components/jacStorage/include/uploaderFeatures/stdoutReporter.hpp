@@ -7,6 +7,14 @@ namespace jac::storage {
 template < typename Self >
 class StdoutReporter {
 public:
+    void yieldBuffer( uint8_t *s, size_t len ) {
+        std::cout.write( s, len );
+    }
+
+    void yieldString( const std::string& s ) {
+        std::cout << s;
+    }
+
     void yieldError( const std::string& s ) {
         std::cout << "ERROR " << s << "\n";
     }

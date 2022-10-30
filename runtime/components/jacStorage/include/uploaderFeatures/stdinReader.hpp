@@ -17,6 +17,10 @@ public:
         ungetc( c, stdin );
         return c;
     }
+
+    void discardBufferedInput() {
+        std::cin.ignore( std::cin.rdbuf()->in_avail() );
+    }
 };
 
 } // namespace jac::storage

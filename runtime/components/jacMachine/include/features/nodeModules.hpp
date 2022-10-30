@@ -1,6 +1,7 @@
 #pragma once
 
 #include <jsmachine.hpp>
+#include <jacLog.hpp>
 #include <duk_module_node.h>
 
 #include <cstring>
@@ -41,7 +42,7 @@ public:
         if ( ret != 0 ) {
             std::string error = duk_safe_to_stacktrace( self()._context, -1 );
             duk_pop( self()._context );
-            std::cout << "Main eval failed: " << error << "\n";
+            JAC_LOGE( "node", "Main eval failed: %s ", error.c_str() );
             throw std::runtime_error( error );
         }
         // Clean up the return value
