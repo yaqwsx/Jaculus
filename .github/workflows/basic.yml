@@ -24,42 +24,18 @@ jobs:
           idf.py build
           idf.py size
   build_doc:
-    name: "Build documentation"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install dependencies
-        run: |
-          sudo pip3 install mkdocs
-      - name: "Build"
-        run: |
-          mkdocs build
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
-          name: documentation
-          path: site
-          retention-days: 14
-  deploy:
-    name: "Deploy GH Pages"
-    runs-on: ubuntu-20.04
-    needs: build_doc
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout # Required for GH-pages deployment
-        uses: actions/checkout@v2
-      - name: "Download documentation"
-        uses: actions/download-artifact@v2
-        with:
-          name: documentation
-          path: documentation
-      - name: Deploy to GH Pages
-        uses: JamesIves/github-pages-deploy-action@4.1.0
-        with:
-          branch: gh-pages
-          folder: documentation
-          single-commit: true
+          python-version: 3.8
+      - run: sudo apt install doxygen
+      - run: pip install mkdocs-material
+      - run: pip install mkdocs-doxygen-snippets-plugin
+      - run: pip install mkdocs-awesome-pages-plugin
+
+      - run: mkdocs gh-deploy --force
 
 
 
