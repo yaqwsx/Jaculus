@@ -24,11 +24,16 @@ std::string jac::fs::concatPath( std::string a, const std::string& b ) {
 }
 
 std::string jac::fs::readFile( const std::string& path ) {
+    std::string fContent;
+    readFile(path, fContent);
+    return fContent;
+}
+
+void jac::fs::readFile( const std::string& path, std::string& output ) {
     int fileFd = open( path.c_str(), O_RDONLY );
     if ( fileFd < 0 )
         throw std::runtime_error( "Cannot open " + path + ": " + std::strerror( errno ) );
     int bytesRead;
-    std::string fContent;
     do {
         const int CHUNK_SIZE = 64;
         char buffer[ CHUNK_SIZE ];
@@ -37,10 +42,9 @@ std::string jac::fs::readFile( const std::string& path ) {
             close( fileFd );
             throw std::runtime_error( "Cannot read " + path + ": " + std::strerror( errno ) );
         }
-        std::copy_n( buffer, bytesRead, std::back_inserter( fContent ) );
+        std::copy_n( buffer, bytesRead, std::back_inserter( output ) );
     } while ( bytesRead != 0 );
     close( fileFd );
-    return fContent;
 }
 
 bool jac::fs::fileExists( const std::string& path ) {
